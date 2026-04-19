@@ -164,12 +164,6 @@ export async function renderToolUseBlock(
   relatedResult?: ToolResultBlock,
 ): Promise<string> {
   const intentLabel = getToolIntentLabel(block.name, block.input);
-
-  // Read-only tools: suppress entirely — no visual output in the transcript
-  if (block.name.toLowerCase() === "read") {
-    return "";
-  }
-
   const inlinePreview = await renderInlineToolUsePreview(block, relatedResult);
   const patch = extractPatch(block.input);
   const diffHtml = inlinePreview ? null : patch ? await renderDiffBlock(patch) : null;

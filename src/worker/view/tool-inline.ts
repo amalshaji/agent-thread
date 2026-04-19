@@ -246,6 +246,10 @@ export async function renderInlineToolUsePreview(
   const fileName = getToolFileName(block.input);
 
   switch (block.name.toLowerCase()) {
+    case "read": {
+      const resultContent = relatedResult ? getToolResultTextContent(relatedResult.content) : null;
+      return resultContent ? renderCodePayload(resultContent, fileName) : null;
+    }
     case "write": {
       const record = asRecord(block.input);
       const content = typeof record?.content === "string" ? record.content : null;

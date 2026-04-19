@@ -1,4 +1,4 @@
-import { preloadPatchDiff } from "@pierre/diffs/ssr";
+import { escapeHtml } from "./utils";
 
 function stripDiffFence(value: string): string {
   const trimmed = value.trim();
@@ -71,7 +71,10 @@ export function resetDiffBudget(): void {
   _diffBudget = MAX_DIFFS_PER_REQUEST;
 }
 
-export async function renderDiffBlock(_patch: string): Promise<string | null> {
-  // Diff rendering disabled — callers fall back to plain pre blocks.
-  return null;
+export async function renderDiffBlock(patch: string): Promise<string | null> {
+  if (patch.length > DIFF_SIZE_LIMIT || _diffBudget <= 0) {
+    return null;
+  }
+  _diffBudget--;
+  return `<pre class="diff-view" data-diff>${escapeHtml(patch)}</pre>`;
 }

@@ -317,7 +317,7 @@ test("renderSessionPage avoids duplicate activity labels and message kind noise"
 
   const html = await renderSessionPage("public-2", session);
 
-  expect(html).toContain(">Metadata<");
+  expect(html).toContain(">Snapshot<");
   expect(html).toContain("Show 1 hidden activity item");
   expect(html).not.toContain("Snapshot</span>\n            <span>Snapshot</span>");
   expect(html).not.toContain(">unknown<");
