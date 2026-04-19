@@ -9,8 +9,9 @@ function formatDate(value: string | null): string {
   return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString();
 }
 
-export function formatSessionLabel(session: DiscoveredClaudeSession): string {
-  return session.title ?? session.sessionId;
+export function formatSessionLabel(session: DiscoveredClaudeSession, maxLength = 60): string {
+  const label = session.title ?? session.sessionId;
+  return label.length > maxLength ? label.slice(0, maxLength - 1) + "…" : label;
 }
 
 export function formatSessionHint(session: DiscoveredClaudeSession): string {
