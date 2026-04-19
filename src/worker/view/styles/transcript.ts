@@ -175,6 +175,7 @@ export const transcriptStyles = `
     min-width: 0;
     width: fit-content;
     max-width: min(44rem, 100%);
+    align-self: flex-start;
     border: 1px solid var(--border);
     border-radius: 7px;
     background: var(--surface);
@@ -182,7 +183,7 @@ export const transcriptStyles = `
   }
 
   .tool-call-disclosure[open] {
-    width: 100%;
+    width: fit-content;
     border-color: var(--border-strong);
   }
 
@@ -244,9 +245,10 @@ export const transcriptStyles = `
     min-width: 0;
     max-width: 100%;
     width: fit-content;
+    align-self: flex-start;
   }
 
-  .tool-result-disclosure[open] { width: 100%; }
+  .tool-result-disclosure[open] { width: fit-content; }
 
   .tool-result-disclosure > summary {
     list-style: none;

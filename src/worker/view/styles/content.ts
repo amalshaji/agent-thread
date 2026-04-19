@@ -181,10 +181,11 @@ export const contentStyles = `
     min-width: 0;
     max-width: 100%;
     width: fit-content;
+    align-self: flex-start;
   }
 
   .tool-result-disclosure[open] {
-    width: 100%;
+    width: fit-content;
   }
 
   .tool-result-disclosure summary {
@@ -306,11 +307,12 @@ export const contentStyles = `
     min-width: 0;
     max-width: 100%;
     width: fit-content;
+    align-self: flex-start;
   }
 
   .tool-call-disclosure[open] {
     display: block;
-    width: 100%;
+    width: fit-content;
   }
 
   .tool-call-disclosure summary {
@@ -350,7 +352,9 @@ export const contentStyles = `
   .tool-inline-call {
     display: grid;
     gap: 10px;
-    width: 100%;
+    width: fit-content;
+    max-width: 100%;
+    align-self: flex-start;
   }
 
   .tool-file-preview {
