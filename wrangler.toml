@@ -1,0 +1,15 @@
+name = "agent-thread"
+main = "src/worker/index.ts"
+compatibility_date = "2026-03-27"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "agent-thread"
+database_id = "564bb1ee-d00d-48b0-a35b-cae425ccc0e4"
+
+[[r2_buckets]]
+binding = "SESSIONS_BUCKET"
+bucket_name = "agent-thread-sessions-amalshaji"
+
+[vars]
+PUBLIC_BASE_URL = ""
