@@ -1,6 +1,6 @@
 {
   "name": "agent-thread",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "type": "module",
   "description": "Share Claude Code sessions as public links",
   "bin": {
