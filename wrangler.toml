@@ -11,5 +11,11 @@ database_id = "564bb1ee-d00d-48b0-a35b-cae425ccc0e4"
 binding = "SESSIONS_BUCKET"
 bucket_name = "agent-thread-sessions-amalshaji"
 
+[[routes]]
+pattern = "agent-thread.com"
+zone_name = "agent-thread.com"
+custom_domain = true
+
 [vars]
-PUBLIC_BASE_URL = ""
+PUBLIC_BASE_URL = "https://agent-thread.com"
+AGENT_THREAD_SERVER_URL = "https://agent-thread.com"

@@ -510,6 +510,7 @@ export const contentStyles = `
   }
 
   .tool-payload {
+    margin: 0;
     padding: 10px 12px;
     border: 1px solid var(--line);
     border-radius: 8px;
