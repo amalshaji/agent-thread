@@ -19,3 +19,7 @@ custom_domain = true
 [vars]
 PUBLIC_BASE_URL = "https://agent-thread.com"
 AGENT_THREAD_SERVER_URL = "https://agent-thread.com"
+
+[observability.logs]
+enabled = false
+invocation_logs = true
