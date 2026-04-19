@@ -6,6 +6,12 @@ export interface CliOptions {
   json: boolean;
 }
 
+export const DEFAULT_SERVER_URL = "https://agent-thread.com";
+
+export function resolveServerUrl(env: NodeJS.ProcessEnv = process.env): string {
+  return env.AGENT_THREAD_SERVER_URL ?? DEFAULT_SERVER_URL;
+}
+
 export function usage(): string {
   return [
     "Usage: bunx agent-thread [options]",
@@ -23,7 +29,7 @@ export function usage(): string {
 export function parseArgs(argv: string[]): CliOptions {
   const options: CliOptions = {
     cwd: process.cwd(),
-    serverUrl: process.env.AGENT_THREAD_SERVER_URL ?? "https://agent-thread.amalshaji.workers.dev",
+    serverUrl: resolveServerUrl(),
     latest: false,
     json: false,
   };

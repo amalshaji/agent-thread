@@ -42,6 +42,8 @@ Without `AGENT_THREAD_SERVER_URL`, the CLI defaults to the deployed Worker:
 bunx agent-thread
 ```
 
+Current default: `https://agent-thread.com`
+
 ## Cloudflare setup
 
 Create an R2 bucket and a D1 database, then update `wrangler.toml` with the real binding values.
