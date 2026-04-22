@@ -186,7 +186,7 @@ export const contentStyles = `
   }
 
   .tool-result-disclosure[open] {
-    width: fit-content;
+    width: 100%;
   }
 
   .tool-result-disclosure summary {
