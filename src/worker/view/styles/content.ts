@@ -182,10 +182,11 @@ export const contentStyles = `
     max-width: 100%;
     width: fit-content;
     align-self: flex-start;
+    white-space: normal;
   }
 
   .tool-result-disclosure[open] {
-    width: fit-content;
+    width: 100%;
   }
 
   .tool-result-disclosure summary {
@@ -277,6 +278,18 @@ export const contentStyles = `
   .tool-result-panel .block.markdown,
   .tool-result-panel .block.text {
     color: var(--ink);
+    font-size: 12.5px;
+  }
+
+  .tool-result-panel .block.markdown h1,
+  .tool-result-panel .block.markdown h2,
+  .tool-result-panel .block.markdown h3,
+  .tool-result-panel .block.markdown h4 {
+    font-size: 12.5px;
+    font-weight: 500;
+    margin: 0;
+    line-height: inherit;
+    letter-spacing: normal;
   }
 
   .attachment-card {
@@ -308,6 +321,7 @@ export const contentStyles = `
     max-width: 100%;
     width: fit-content;
     align-self: flex-start;
+    white-space: normal;
   }
 
   .tool-call-disclosure[open] {

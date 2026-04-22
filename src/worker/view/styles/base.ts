@@ -29,7 +29,7 @@ export const baseStyles = `
 
     /* Fonts */
     --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI Variable", "SF Pro Text", system-ui, sans-serif;
-    --font-mono: "JetBrains Mono", "SF Mono", "Menlo", ui-monospace, monospace;
+    --font-mono: "Fragment Mono", "SF Mono", "Menlo", ui-monospace, monospace;
     --font-serif: "Georgia", "Times New Roman", serif;
 
     /* Aliases for legacy styles */
