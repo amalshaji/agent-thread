@@ -182,6 +182,7 @@ export const contentStyles = `
     max-width: 100%;
     width: fit-content;
     align-self: flex-start;
+    white-space: normal;
   }
 
   .tool-result-disclosure[open] {
@@ -308,6 +309,7 @@ export const contentStyles = `
     max-width: 100%;
     width: fit-content;
     align-self: flex-start;
+    white-space: normal;
   }
 
   .tool-call-disclosure[open] {
