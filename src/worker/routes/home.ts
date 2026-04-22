@@ -10,7 +10,7 @@ const HOME_HTML = `<!doctype html>
     <title>agent-thread — share Claude sessions</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=Fragment+Mono&display=swap" rel="stylesheet" />
     <script>
       (() => {
         try {
@@ -25,7 +25,7 @@ const HOME_HTML = `<!doctype html>
         --bg: #fbfaf8; --bg-soft: #f4f2ee; --border: #e8e4dc;
         --ink: #1a1916; --ink-soft: #3c3a34; --muted: #76716a; --faint: #a19c92;
         --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI Variable", system-ui, sans-serif;
-        --font-mono: "JetBrains Mono", "SF Mono", ui-monospace, monospace;
+        --font-mono: "Fragment Mono", "SF Mono", ui-monospace, monospace;
       }
       html[data-theme="dark"] {
         color-scheme: dark;
