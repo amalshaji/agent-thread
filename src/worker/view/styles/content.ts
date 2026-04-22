@@ -278,6 +278,7 @@ export const contentStyles = `
   .tool-result-panel .block.markdown,
   .tool-result-panel .block.text {
     color: var(--ink);
+    font-size: 12.5px;
   }
 
   .attachment-card {
