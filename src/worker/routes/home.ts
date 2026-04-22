@@ -92,16 +92,16 @@ const HOME_HTML = `<!doctype html>
       <p class="tagline">Upload any Claude Code session as a public link in one command.</p>
       <div class="cmds">
         <div class="cmd-row">
-          <code>bunx agent-thread</code>
-          <button class="copy-btn" onclick="copyCmd(this, 'bunx agent-thread')">copy</button>
+          <code>bunx agent-thread@latest</code>
+          <button class="copy-btn" onclick="copyCmd(this, 'bunx agent-thread@latest')">copy</button>
         </div>
         <div class="cmd-row">
-          <code>npx agent-thread</code>
-          <button class="copy-btn" onclick="copyCmd(this, 'npx agent-thread')">copy</button>
+          <code>npx agent-thread@latest</code>
+          <button class="copy-btn" onclick="copyCmd(this, 'npx agent-thread@latest')">copy</button>
         </div>
         <div class="cmd-row">
-          <code>pnpx agent-thread</code>
-          <button class="copy-btn" onclick="copyCmd(this, 'pnpx agent-thread')">copy</button>
+          <code>pnpx agent-thread@latest</code>
+          <button class="copy-btn" onclick="copyCmd(this, 'pnpx agent-thread@latest')">copy</button>
         </div>
       </div>
     </main>
