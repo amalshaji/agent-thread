@@ -281,6 +281,17 @@ export const contentStyles = `
     font-size: 12.5px;
   }
 
+  .tool-result-panel .block.markdown h1,
+  .tool-result-panel .block.markdown h2,
+  .tool-result-panel .block.markdown h3,
+  .tool-result-panel .block.markdown h4 {
+    font-size: 12.5px;
+    font-weight: 500;
+    margin: 0;
+    line-height: inherit;
+    letter-spacing: normal;
+  }
+
   .attachment-card {
     display: grid;
     gap: 8px;
