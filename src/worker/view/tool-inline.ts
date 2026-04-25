@@ -95,7 +95,7 @@ export interface ToolMeta {
   summary: string;
 }
 
-const TOOL_ICONS: Record<string, string> = {
+const TOOL_ICONS: Record<string, string | undefined> = {
   file: '<path d="M4 2h5l3 3v9H4z"/><polyline points="9,2 9,5 12,5"/>',
   edit: '<path d="M3 13l2-.5L12 5.5 10.5 4 3.5 11 3 13z"/>',
   terminal: '<polyline points="3,5 6,8 3,11"/><line x1="8" y1="11" x2="13" y2="11"/>',
@@ -105,6 +105,8 @@ const TOOL_ICONS: Record<string, string> = {
   dot: '<circle cx="8" cy="8" r="2" fill="currentColor" stroke="none"/>',
 };
 
+const icon = (key: string): string => TOOL_ICONS[key] ?? TOOL_ICONS.dot ?? "";
+
 export function getToolMeta(name: string, input: unknown): ToolMeta {
   const fileName = getToolFileName(input);
   const record = asRecord(input);
@@ -112,31 +114,31 @@ export function getToolMeta(name: string, input: unknown): ToolMeta {
 
   switch (n) {
     case "write":
-      return { shortName: "Write", color: "purple", iconPaths: TOOL_ICONS.edit, summary: fileName ?? "" };
+      return { shortName: "Write", color: "purple", iconPaths: icon("edit"), summary: fileName ?? "" };
     case "edit":
-      return { shortName: "Edit", color: "purple", iconPaths: TOOL_ICONS.edit, summary: fileName ?? "" };
+      return { shortName: "Edit", color: "purple", iconPaths: icon("edit"), summary: fileName ?? "" };
     case "multiedit":
-      return { shortName: "Edit", color: "purple", iconPaths: TOOL_ICONS.edit, summary: fileName ?? "" };
+      return { shortName: "Edit", color: "purple", iconPaths: icon("edit"), summary: fileName ?? "" };
     case "read":
-      return { shortName: "Read", color: "blue", iconPaths: TOOL_ICONS.file, summary: fileName ?? "" };
+      return { shortName: "Read", color: "blue", iconPaths: icon("file"), summary: fileName ?? "" };
     case "bash": {
-      const cmd = typeof record?.command === "string" ? record.command.trim().split("\n")[0] : "";
-      return { shortName: "Bash", color: "gray", iconPaths: TOOL_ICONS.terminal, summary: cmd.substring(0, 60) };
+      const cmd = typeof record?.command === "string" ? (record.command.trim().split("\n")[0] ?? "") : "";
+      return { shortName: "Bash", color: "gray", iconPaths: icon("terminal"), summary: cmd.substring(0, 60) };
     }
     case "agent":
-      return { shortName: "Agent", color: "pink", iconPaths: TOOL_ICONS.sparkle, summary: "" };
+      return { shortName: "Agent", color: "pink", iconPaths: icon("sparkle"), summary: "" };
     case "webfetch":
-      return { shortName: "Fetch", color: "cyan", iconPaths: TOOL_ICONS.link, summary: "" };
+      return { shortName: "Fetch", color: "cyan", iconPaths: icon("link"), summary: "" };
     case "websearch": {
       const q = typeof record?.query === "string" ? record.query.substring(0, 40) : "";
-      return { shortName: "Search", color: "cyan", iconPaths: TOOL_ICONS.link, summary: q };
+      return { shortName: "Search", color: "cyan", iconPaths: icon("link"), summary: q };
     }
     case "grep":
-      return { shortName: "Grep", color: "amber", iconPaths: TOOL_ICONS.grep, summary: fileName ?? "" };
+      return { shortName: "Grep", color: "amber", iconPaths: icon("grep"), summary: fileName ?? "" };
     case "glob":
-      return { shortName: "Glob", color: "amber", iconPaths: TOOL_ICONS.grep, summary: fileName ?? "" };
+      return { shortName: "Glob", color: "amber", iconPaths: icon("grep"), summary: fileName ?? "" };
     default:
-      return { shortName: name, color: "gray", iconPaths: TOOL_ICONS.dot, summary: fileName ?? "" };
+      return { shortName: name, color: "gray", iconPaths: icon("dot"), summary: fileName ?? "" };
   }
 }
 
