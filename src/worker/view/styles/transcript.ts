@@ -431,42 +431,6 @@ export const transcriptStyles = `
     text-overflow: ellipsis;
   }
 
-  .tool-file-expand {
-    border-top: 1px solid var(--border);
-  }
-
-  .tool-file-expand summary {
-    list-style: none;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 14px;
-    background: var(--bg-soft);
-    color: var(--muted);
-    transition: background 120ms ease, color 120ms ease;
-  }
-
-  .tool-file-expand summary::-webkit-details-marker { display: none; }
-  .tool-file-expand summary::marker { content: ""; }
-  .tool-file-expand summary:hover { background: var(--bg-sunk); color: var(--ink); }
-
-  .tool-file-expand-label {
-    font-family: var(--font-mono);
-    font-size: 11px;
-    line-height: 1;
-  }
-
-  .tool-file-expand[open] summary { border-bottom: 1px solid var(--border); }
-
-  .tool-file-more {
-    padding: 6px 14px;
-    border-top: 1px solid var(--border);
-    background: var(--bg-soft);
-    font-family: var(--font-mono);
-    font-size: 11px;
-    color: var(--muted);
-  }
 
   /* ————————————————————————————
      Thread header (multi-thread view)

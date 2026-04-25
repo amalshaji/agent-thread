@@ -191,9 +191,6 @@ function inferLanguage(fileName: string | null): string | null {
   }
 }
 
-const CODE_PREVIEW_LINES = 4;
-const CODE_EXPAND_LIMIT = 80;
-
 function renderCodePayload(content: string, fileName: string | null): string {
   const language = inferLanguage(fileName);
   const languageClass = language ? ` class="language-${escapeHtml(language)}"` : "";
@@ -201,41 +198,10 @@ function renderCodePayload(content: string, fileName: string | null): string {
     ? `<div class="tool-file-header"><span class="tool-file-name">${escapeHtml(fileName)}</span></div>`
     : "";
 
-  const lines = splitLines(content);
-
-  if (lines.length <= CODE_PREVIEW_LINES) {
-    return `
-      <div class="tool-file-preview">
-        ${header}
-        <pre class="tool-payload tool-code-payload"><code${languageClass}>${escapeHtml(content)}</code></pre>
-      </div>
-    `;
-  }
-
-  const previewContent = lines.slice(0, CODE_PREVIEW_LINES).join("\n");
-  const remainingCount = lines.length - CODE_PREVIEW_LINES;
-
-  // For large files, avoid rendering all lines — just show a count badge
-  if (lines.length > CODE_EXPAND_LIMIT) {
-    return `
-      <div class="tool-file-preview">
-        ${header}
-        <pre class="tool-payload tool-code-payload"><code${languageClass}>${escapeHtml(previewContent)}</code></pre>
-        <div class="tool-file-more">+${remainingCount} more ${remainingCount === 1 ? "line" : "lines"}</div>
-      </div>
-    `;
-  }
-
-  const remainingContent = lines.slice(CODE_PREVIEW_LINES).join("\n").replace(/^\n+/, "");
-
   return `
     <div class="tool-file-preview">
       ${header}
-      <pre class="tool-payload tool-code-payload"><code${languageClass}>${escapeHtml(previewContent)}</code></pre>
-      <details class="tool-file-expand">
-        <summary><span class="tool-file-expand-label">Show ${remainingCount} more ${remainingCount === 1 ? "line" : "lines"}</span></summary>
-        <pre class="tool-payload tool-code-payload"><code${languageClass}>${escapeHtml(remainingContent)}</code></pre>
-      </details>
+      <pre class="tool-payload tool-code-payload"><code${languageClass}>${escapeHtml(content)}</code></pre>
     </div>
   `;
 }
