@@ -1,5 +1,26 @@
-import type { NormalizedSession, UploadRequest } from "../shared/contracts";
-import type { UploadRow } from "./types";
+import type { NormalizedSession, UploadRequest } from "@/src/shared/contracts";
+
+export type UploadRow = {
+  id: string;
+  public_id: string;
+  source: string;
+  session_id: string;
+  project_key: string;
+  title: string | null;
+  project_path: string | null;
+  raw_prefix: string;
+  normalized_key: string;
+  event_count: number;
+  thread_count: number;
+  created_at: string;
+};
+
+export type SessionLookup =
+  | {
+      upload: UploadRow;
+      session: NormalizedSession;
+    }
+  | null;
 
 export function createPublicId(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(6));
@@ -121,5 +142,24 @@ export async function loadNormalizedSession(bucket: R2Bucket, key: string): Prom
     return null;
   }
 
-  return (await object.json()) as NormalizedSession;
+  return object.json<NormalizedSession>();
+}
+
+export async function loadSessionByPublicId(
+  env: { DB: D1Database; SESSIONS_BUCKET: R2Bucket },
+  publicId: string,
+): Promise<SessionLookup> {
+  const upload = await findUploadByPublicId(env.DB, publicId);
+
+  if (!upload) {
+    return null;
+  }
+
+  const session = await loadNormalizedSession(env.SESSIONS_BUCKET, upload.normalized_key);
+
+  if (!session) {
+    return null;
+  }
+
+  return { upload, session };
 }

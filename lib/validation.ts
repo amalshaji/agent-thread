@@ -1,4 +1,4 @@
-import type { UploadRequest } from "../shared/contracts";
+import type { UploadRequest } from "@/src/shared/contracts";
 
 export function isUploadRequest(value: unknown): value is UploadRequest {
   if (!value || typeof value !== "object") {

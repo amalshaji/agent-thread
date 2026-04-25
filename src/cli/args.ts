@@ -8,7 +8,7 @@ export interface CliOptions {
 
 export const DEFAULT_SERVER_URL = "https://agent-thread.com";
 
-export function resolveServerUrl(env: NodeJS.ProcessEnv = process.env): string {
+export function resolveServerUrl(env: Record<string, string | undefined> = process.env): string {
   return env.AGENT_THREAD_SERVER_URL ?? DEFAULT_SERVER_URL;
 }
 
@@ -19,7 +19,7 @@ export function usage(): string {
     "Options:",
     "  --cwd <path>          Inspect Claude sessions for a different directory",
     "  --claude-home <path>  Override the Claude home directory",
-    "  --server <url>        Worker base URL",
+    "  --server <url>        Server base URL",
     "  --latest              Upload the latest session without prompting",
     "  --json                Print the result as JSON",
     "  --help                Show this help message",

@@ -1,14 +1,14 @@
 # agent-thread
 
-Claude session uploader and share viewer built with Bun, Hono, and Cloudflare Workers.
+Claude session uploader and share viewer built with Bun, Next.js, shadcn/ui, OpenNext, and Cloudflare Workers.
 
 ## What works now
 
 - `bunx agent-thread` style CLI entrypoint via the `agent-thread` binary
 - Claude session discovery from `~/.claude/projects`
 - Interactive selection of sessions for the current directory
-- Upload endpoint on a Hono Worker
-- Share page route backed by D1 metadata and R2 session storage
+- Upload endpoint as a Next route handler
+- Server-rendered share page backed by D1 metadata and R2 session storage
 
 ## Install
 
@@ -18,22 +18,22 @@ bun install
 
 ## Run the CLI locally
 
-Start the Worker first:
+Start the Next app first:
 
 ```bash
 bun run dev
 ```
 
-Then run the CLI against that Worker:
+Then run the CLI against that local app:
 
 ```bash
-AGENT_THREAD_SERVER_URL=http://127.0.0.1:8787 bun run cli
+AGENT_THREAD_SERVER_URL=http://127.0.0.1:3000 bun run cli
 ```
 
 Or upload the latest session without a prompt:
 
 ```bash
-AGENT_THREAD_SERVER_URL=http://127.0.0.1:8787 bun run cli --latest
+AGENT_THREAD_SERVER_URL=http://127.0.0.1:3000 bun run cli --latest
 ```
 
 Without `AGENT_THREAD_SERVER_URL`, the CLI defaults to the deployed Worker:
@@ -58,4 +58,13 @@ bunx wrangler d1 migrations apply agent-thread
 
 ```bash
 bun test
+```
+
+## Deploy
+
+Next.js is deployed to Cloudflare Workers through OpenNext:
+
+```bash
+bun run preview
+bun run deploy
 ```
