@@ -95,13 +95,17 @@ async function deferDiffFences(value: string): Promise<{ deferredDiffs: Deferred
   return { deferredDiffs, source };
 }
 
-export async function renderMarkdownBlock(value: string): Promise<string> {
+export async function renderMarkdownInner(value: string): Promise<string> {
   const { deferredDiffs, source } = await deferDiffFences(value);
   const rendered = markdown.render(source);
 
   if (deferredDiffs.length === 0) {
-    return wrapMarkdown(rendered);
+    return rendered;
   }
 
-  return wrapMarkdown(replaceDeferredBlocks(rendered, deferredDiffs));
+  return replaceDeferredBlocks(rendered, deferredDiffs);
+}
+
+export async function renderMarkdownBlock(value: string): Promise<string> {
+  return wrapMarkdown(await renderMarkdownInner(value));
 }

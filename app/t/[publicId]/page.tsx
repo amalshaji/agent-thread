@@ -8,9 +8,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { getAgentThreadEnv } from "@/lib/cloudflare";
 import { loadSessionByPublicId } from "@/lib/storage";
 import type { NormalizedSession } from "@/src/shared/contracts";
+import { Thread } from "@/components/transcript/thread";
 import { resetDiffBudget } from "@/src/worker/view/diff";
-import { pageStyles } from "@/src/worker/view/styles";
-import { renderThread } from "@/src/worker/view/threads";
 import { formatShortDate, formatShortTime } from "@/src/worker/view/utils";
 
 export const dynamic = "force-dynamic";
@@ -130,13 +129,6 @@ export default async function ThreadPage({ params }: ThreadPageProps) {
   resetDiffBudget();
 
   const hasMultipleThreads = session.threads.length > 1;
-  const renderedThreads = await Promise.all(
-    session.threads.map((thread) =>
-      renderThread(thread, {
-        showHeader: hasMultipleThreads || thread.kind !== "main",
-      }),
-    ),
-  );
   const title = session.root.title ?? session.root.sessionId;
   const outlineItems = buildOutlineItems(session);
   const metaItems = buildMetaItems(session);
@@ -144,9 +136,8 @@ export default async function ThreadPage({ params }: ThreadPageProps) {
 
   return (
     <>
-      <style dangerouslySetInnerHTML={{ __html: pageStyles }} />
       <AppHeader publicId={publicId} />
-      <div className="chat-shell">
+      <div className="chat-shell" data-transcript>
         <aside className="chat-side">
           <ScrollArea className="chat-outline">
             <nav aria-label="Conversation outline">
@@ -206,7 +197,15 @@ export default async function ThreadPage({ params }: ThreadPageProps) {
           </header>
 
           <div className="chat-stream">
-            <div dangerouslySetInnerHTML={{ __html: renderedThreads.join("") }} />
+            <div>
+              {session.threads.map((thread) => (
+                <Thread
+                  key={thread.id}
+                  thread={thread}
+                  showHeader={hasMultipleThreads || thread.kind !== "main"}
+                />
+              ))}
+            </div>
             <div className="chat-end">
               <div className="chat-end-dot" />
               <span>Conversation ended</span>

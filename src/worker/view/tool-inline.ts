@@ -42,7 +42,7 @@ function getToolFileName(input: unknown): string | null {
   return path ? basename(path) : null;
 }
 
-function getToolResultTextContent(content: unknown): string | null {
+export function getToolResultTextContent(content: unknown): string | null {
   if (typeof content === "string" && content.length > 0) {
     return content;
   }

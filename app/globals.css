@@ -301,3 +301,54 @@ pre,
     @apply font-sans;
   }
 }
+
+/* ————————————————————————————
+   Transcript scope — vars that conflict with shadcn
+———————————————————————————— */
+[data-transcript] {
+  --muted: #76716a;
+  --accent: #4a9d60;
+  --accent-soft: #e6f1e9;
+  --accent-ink: #2d6b3e;
+
+  --c-blue: #3c6fb0;     --c-blue-soft: #e5edf6;
+  --c-purple: #6b4fad;   --c-purple-soft: #ece6f5;
+  --c-amber: #a77320;    --c-amber-soft: #f4ecd9;
+  --c-green: #3b7a48;    --c-green-soft: #e4eee6;
+  --c-cyan: #2f7a88;     --c-cyan-soft: #dbecef;
+  --c-gray: #5a554d;     --c-gray-soft: #ecebe6;
+  --c-pink: #9c4a7a;     --c-pink-soft: #f2e3ec;
+
+  --line: var(--border);
+  --line-strong: var(--border-strong);
+  --surface-1: var(--bg-soft);
+  --surface-2: var(--bg-sunk);
+  --surface-3: rgba(26, 25, 22, 0.07);
+  --panel-elevated: var(--surface);
+  --user-ink: var(--ink);
+  --lightbox-backdrop: rgba(0, 0, 0, 0.72);
+  --transcript-width: 820px;
+  --shadow-sm: 0 1px 2px rgba(26, 25, 22, 0.04), 0 0 0 1px rgba(26, 25, 22, 0.04);
+  --shadow-md: 0 2px 8px rgba(26, 25, 22, 0.06), 0 0 0 1px rgba(26, 25, 22, 0.04);
+  --shadow-elevated: rgba(26, 25, 22, 0.12);
+}
+
+html[data-theme="dark"] [data-transcript] {
+  --muted: #7a7469;
+  --accent: #4a9d60;
+  --accent-soft: rgba(74, 157, 96, 0.15);
+  --accent-ink: #8bcca0;
+
+  --c-blue: #6a9fd4;     --c-blue-soft: rgba(60, 111, 176, 0.18);
+  --c-purple: #a688d8;   --c-purple-soft: rgba(107, 79, 173, 0.18);
+  --c-amber: #d4a050;    --c-amber-soft: rgba(167, 115, 32, 0.18);
+  --c-green: #6ab87e;    --c-green-soft: rgba(59, 122, 72, 0.18);
+  --c-cyan: #5ab4c4;     --c-cyan-soft: rgba(47, 122, 136, 0.18);
+  --c-gray: #948e86;     --c-gray-soft: rgba(90, 85, 77, 0.25);
+  --c-pink: #d07aaa;     --c-pink-soft: rgba(156, 74, 122, 0.18);
+
+  --surface-3: rgba(255, 255, 255, 0.09);
+  --panel-elevated: #1e1c19;
+  --lightbox-backdrop: rgba(0, 0, 0, 0.88);
+  --shadow-elevated: rgba(0, 0, 0, 0.3);
+}

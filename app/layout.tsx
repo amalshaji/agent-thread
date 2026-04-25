@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Toaster } from "sonner";
 
 import "./globals.css";
+import "./transcript.css";
 
 export const metadata: Metadata = {
   title: "agent thread",
