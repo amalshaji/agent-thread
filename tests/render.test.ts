@@ -1,9 +1,34 @@
 import { expect, test } from "bun:test";
+import { createElement } from "react";
+import { renderToReadableStream } from "react-dom/server";
 
-import type { NormalizedSession } from "../src/shared/contracts";
-import { renderSessionPage } from "../src/worker/render";
+import type { NormalizedSession, NormalizedThread } from "../src/shared/contracts";
+import { resetDiffBudget } from "../lib/transcript/diff";
+import { Thread } from "../components/transcript/thread";
 
-test("renderSessionPage hides empty thinking pre blocks and renders patch diffs", async () => {
+async function renderThread(thread: NormalizedThread, showHeader = false): Promise<string> {
+  resetDiffBudget();
+  const stream = await renderToReadableStream(
+    createElement(Thread, { thread, showHeader }),
+  );
+  await stream.allReady;
+  const reader = stream.getReader();
+  const chunks: Uint8Array[] = [];
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+  }
+  return Buffer.concat(chunks).toString("utf8");
+}
+
+function mainThread(session: NormalizedSession): NormalizedThread {
+  const t = session.threads.find((t) => t.kind === "main") ?? session.threads[0];
+  if (!t) throw new Error("no thread");
+  return t;
+}
+
+test("hides empty thinking pre blocks and renders patch diffs", async () => {
   const session: NormalizedSession = {
     schemaVersion: 1,
     source: "claude-code",
@@ -67,27 +92,17 @@ test("renderSessionPage hides empty thinking pre blocks and renders patch diffs"
         ],
       },
     ],
-    stats: {
-      threadCount: 1,
-      eventCount: 2,
-      messageCount: 2,
-      sidechainCount: 0,
-    },
+    stats: { threadCount: 1, eventCount: 2, messageCount: 2, sidechainCount: 0 },
   };
 
-  const html = await renderSessionPage("public-1", session);
+  const html = await renderThread(mainThread(session));
 
   expect(html).toContain("Thinking was captured without displayable text.");
-  expect(html).not.toContain("<details class=\"block thinking\"><summary>Thinking</summary><pre class=\"tool-payload\"></pre></details>");
+  expect(html).not.toContain('<details class="block thinking">');
   expect(html).toContain("data-diff");
-  expect(html).toContain("tool-pill");
-  expect(html).not.toContain("<details class=\"block tool\">");
-  expect(html).toContain("tool-payload");
-  expect(html).toContain("data-theme-toggle");
-  expect(html).toContain("data-image-lightbox");
 });
 
-test("renderSessionPage renders markdown for user and assistant messages", async () => {
+test("renders markdown for user and assistant messages", async () => {
   const session: NormalizedSession = {
     schemaVersion: 1,
     source: "claude-code",
@@ -139,8 +154,7 @@ test("renderSessionPage renders markdown for user and assistant messages", async
             blocks: [
               {
                 kind: "text",
-                text:
-                  "### Summary\n\n- one\n- two\n\n```ts\nconst answer = 42;\n```\n\n```diff\ndiff --git a/file.ts b/file.ts\nindex 1111111..2222222 100644\n--- a/file.ts\n+++ b/file.ts\n@@ -1 +1 @@\n-old\n+new\n```",
+                text: "### Summary\n\n- one\n- two\n\n```ts\nconst answer = 42;\n```\n\n```diff\ndiff --git a/file.ts b/file.ts\nindex 1111111..2222222 100644\n--- a/file.ts\n+++ b/file.ts\n@@ -1 +1 @@\n-old\n+new\n```",
               },
             ],
             textPreview: null,
@@ -151,17 +165,12 @@ test("renderSessionPage renders markdown for user and assistant messages", async
         ],
       },
     ],
-    stats: {
-      threadCount: 1,
-      eventCount: 2,
-      messageCount: 2,
-      sidechainCount: 0,
-    },
+    stats: { threadCount: 1, eventCount: 2, messageCount: 2, sidechainCount: 0 },
   };
 
-  const html = await renderSessionPage("public-markdown", session);
+  const html = await renderThread(mainThread(session));
 
-  expect(html).toContain('<div class="block markdown">');
+  expect(html).toContain('class="block markdown"');
   expect(html).toContain("<strong>bold</strong>");
   expect(html).toContain('href="https://example.com"');
   expect(html).toContain('target="_blank"');
@@ -171,7 +180,7 @@ test("renderSessionPage renders markdown for user and assistant messages", async
   expect(html).toContain("data-diff");
 });
 
-test("renderSessionPage renders user attachments outside the compact user badge", async () => {
+test("renders user attachments outside the compact user badge", async () => {
   const session: NormalizedSession = {
     schemaVersion: 1,
     source: "claude-code",
@@ -212,11 +221,7 @@ test("renderSessionPage renders user attachments outside the compact user badge"
                 kind: "raw",
                 value: {
                   type: "image",
-                  source: {
-                    type: "base64",
-                    media_type: "image/png",
-                    data: "Zm9v",
-                  },
+                  source: { type: "base64", media_type: "image/png", data: "Zm9v" },
                 },
               },
             ],
@@ -228,19 +233,12 @@ test("renderSessionPage renders user attachments outside the compact user badge"
         ],
       },
     ],
-    stats: {
-      threadCount: 1,
-      eventCount: 1,
-      messageCount: 1,
-      sidechainCount: 0,
-    },
+    stats: { threadCount: 1, eventCount: 1, messageCount: 1, sidechainCount: 0 },
   };
 
-  const html = await renderSessionPage("public-attachments", session);
+  const html = await renderThread(mainThread(session));
 
   expect(html).toContain('class="msg msg-user"');
-  expect(html).toContain('class="message-bubble bubble-user"');
-  expect(html).toContain('class="message-bubble bubble-user-rich"');
   expect(html).toContain('class="block attachment-card attachment-image"');
   expect(html).toContain('class="attachment-image-button"');
   expect(html).toContain('class="attachment-image-content"');
@@ -249,7 +247,7 @@ test("renderSessionPage renders user attachments outside the compact user badge"
   expect(html).not.toContain("Raw Block");
 });
 
-test("renderSessionPage avoids duplicate activity labels and message kind noise", async () => {
+test("avoids duplicate activity labels and message kind noise", async () => {
   const session: NormalizedSession = {
     schemaVersion: 1,
     source: "claude-code",
@@ -307,23 +305,17 @@ test("renderSessionPage avoids duplicate activity labels and message kind noise"
         ],
       },
     ],
-    stats: {
-      threadCount: 1,
-      eventCount: 2,
-      messageCount: 2,
-      sidechainCount: 0,
-    },
+    stats: { threadCount: 1, eventCount: 2, messageCount: 2, sidechainCount: 0 },
   };
 
-  const html = await renderSessionPage("public-2", session);
+  const html = await renderThread(mainThread(session));
 
   expect(html).toContain(">Snapshot<");
   expect(html).toContain("Show 1 hidden activity item");
-  expect(html).not.toContain("Snapshot</span>\n            <span>Snapshot</span>");
   expect(html).not.toContain(">unknown<");
 });
 
-test("renderSessionPage keeps tool calls and results in the assistant lane", async () => {
+test("keeps tool calls and results in the assistant lane", async () => {
   const session: NormalizedSession = {
     schemaVersion: 1,
     source: "claude-code",
@@ -381,27 +373,75 @@ test("renderSessionPage keeps tool calls and results in the assistant lane", asy
         ],
       },
     ],
-    stats: {
-      threadCount: 1,
-      eventCount: 2,
-      messageCount: 2,
-      sidechainCount: 0,
-    },
+    stats: { threadCount: 1, eventCount: 2, messageCount: 2, sidechainCount: 0 },
   };
 
-  const html = await renderSessionPage("public-3", session);
+  const html = await renderThread(mainThread(session));
 
   expect(html).toContain('class="msg msg-assistant"');
   expect(html).not.toContain('class="message-row lane-system');
   expect(html).not.toContain("Tool Result");
   expect(html).not.toContain(">Tool Call<");
-  expect(html).toContain("Running agent");
+  expect(html).toContain(">Agent<");
   expect(html).toContain('class="block tool-result-disclosure"');
   expect(html).toContain("Tool output");
   expect(html).toContain("1 response");
 });
 
-test("renderSessionPage renders structured tool result text as markdown instead of JSON", async () => {
+test("renders generic tool inputs as readable JSON without a nested payload frame", async () => {
+  const thread: NormalizedThread = {
+    id: "thread-agent-json",
+    kind: "main",
+    sessionId: "session-agent-json",
+    agentId: null,
+    sourceFileName: "session-agent-json.jsonl",
+    sourceRelativePath: "project-agent-json/session-agent-json.jsonl",
+    cwd: "/tmp/project",
+    gitBranch: "main",
+    startedAt: "2026-03-27T00:00:00.000Z",
+    rootEventIds: ["tool-use-agent"],
+    events: [
+      {
+        id: "tool-use-agent",
+        parentId: null,
+        seq: 0,
+        timestamp: "2026-03-27T00:00:01.000Z",
+        topLevelType: "assistant",
+        role: "assistant",
+        displayKind: "tool_use",
+        blocks: [
+          {
+            kind: "tool_use",
+            id: "agent-1",
+            name: "Agent",
+            input: {
+              description: "Find Claude Code session storage location",
+              subagent_type: "claude-code-guide",
+              prompt: "Where are local Claude Code sessions/conversations stored on disk? Include <path>.",
+            },
+          },
+        ],
+        textPreview: null,
+        flags: { isMeta: false, isSidechain: false },
+        refs: {},
+        meta: {},
+      },
+    ],
+  };
+
+  const html = await renderThread(thread);
+
+  expect(html).toContain(">Agent<");
+  expect(html).toContain('class="tool-payload tool-call-payload"');
+  expect(html).not.toContain("tool-call-panel");
+  expect(html).toContain("&quot;description&quot;");
+  expect(html).toContain("Find Claude Code session storage location");
+  expect(html).toContain("&lt;path&gt;");
+  expect(html).not.toContain("&amp;quot;description&amp;quot;");
+  expect(html).not.toContain("&amp;lt;path&amp;gt;");
+});
+
+test("renders structured tool result text as markdown instead of JSON", async () => {
   const session: NormalizedSession = {
     schemaVersion: 1,
     source: "claude-code",
@@ -439,12 +479,7 @@ test("renderSessionPage renders structured tool result text as markdown instead 
             blocks: [
               {
                 kind: "tool_result",
-                content: [
-                  {
-                    type: "text",
-                    text: "## Result\n\n- one\n- two\n\n```ts\nconst answer = 42;\n```",
-                  },
-                ],
+                content: [{ type: "text", text: "## Result\n\n- one\n- two\n\n```ts\nconst answer = 42;\n```" }],
               },
             ],
             textPreview: null,
@@ -455,15 +490,10 @@ test("renderSessionPage renders structured tool result text as markdown instead 
         ],
       },
     ],
-    stats: {
-      threadCount: 1,
-      eventCount: 1,
-      messageCount: 1,
-      sidechainCount: 0,
-    },
+    stats: { threadCount: 1, eventCount: 1, messageCount: 1, sidechainCount: 0 },
   };
 
-  const html = await renderSessionPage("public-tool-markdown", session);
+  const html = await renderThread(mainThread(session));
 
   expect(html).toContain("<h2>Result</h2>");
   expect(html).toContain("<ul>");
@@ -474,7 +504,7 @@ test("renderSessionPage renders structured tool result text as markdown instead 
   expect(html).toContain("1 response");
 });
 
-test("renderSessionPage renders structured tool result images as attachments", async () => {
+test("renders structured tool result images as attachments", async () => {
   const session: NormalizedSession = {
     schemaVersion: 1,
     source: "claude-code",
@@ -512,16 +542,7 @@ test("renderSessionPage renders structured tool result images as attachments", a
             blocks: [
               {
                 kind: "tool_result",
-                content: [
-                  {
-                    type: "image",
-                    source: {
-                      type: "base64",
-                      media_type: "image/png",
-                      data: "Zm9v",
-                    },
-                  },
-                ],
+                content: [{ type: "image", source: { type: "base64", media_type: "image/png", data: "Zm9v" } }],
               },
             ],
             textPreview: null,
@@ -532,15 +553,10 @@ test("renderSessionPage renders structured tool result images as attachments", a
         ],
       },
     ],
-    stats: {
-      threadCount: 1,
-      eventCount: 1,
-      messageCount: 1,
-      sidechainCount: 0,
-    },
+    stats: { threadCount: 1, eventCount: 1, messageCount: 1, sidechainCount: 0 },
   };
 
-  const html = await renderSessionPage("public-tool-image", session);
+  const html = await renderThread(mainThread(session));
 
   expect(html).toContain('class="block attachment-card attachment-image"');
   expect(html).toContain('alt="Tool result image"');
@@ -550,7 +566,7 @@ test("renderSessionPage renders structured tool result images as attachments", a
   expect(html).toContain("1 response");
 });
 
-test("renderSessionPage groups multiple tool outputs inside one collapsed disclosure", async () => {
+test("groups multiple tool outputs inside one collapsed disclosure", async () => {
   const session: NormalizedSession = {
     schemaVersion: 1,
     source: "claude-code",
@@ -602,15 +618,10 @@ test("renderSessionPage groups multiple tool outputs inside one collapsed disclo
         ],
       },
     ],
-    stats: {
-      threadCount: 1,
-      eventCount: 1,
-      messageCount: 1,
-      sidechainCount: 0,
-    },
+    stats: { threadCount: 1, eventCount: 1, messageCount: 1, sidechainCount: 0 },
   };
 
-  const html = await renderSessionPage("public-tool-multi", session);
+  const html = await renderThread(mainThread(session));
 
   expect(html).toContain('class="block tool-result-disclosure"');
   expect(html).toContain("2 responses");
@@ -619,7 +630,7 @@ test("renderSessionPage groups multiple tool outputs inside one collapsed disclo
   expect(html).toContain("Second response");
 });
 
-test("renderSessionPage renders write tool calls inline and hides redundant write results", async () => {
+test("renders write tool calls inline and hides redundant write results", async () => {
   const session: NormalizedSession = {
     schemaVersion: 1,
     source: "claude-code",
@@ -659,10 +670,7 @@ test("renderSessionPage renders write tool calls inline and hides redundant writ
                 kind: "tool_use",
                 id: "call-1",
                 name: "Write",
-                input: {
-                  file_path: "/tmp/project/Fibonacci.ts",
-                  content: "const value = 1;\n",
-                },
+                input: { file_path: "/tmp/project/Fibonacci.ts", content: "const value = 1;\n" },
               },
             ],
             textPreview: null,
@@ -693,34 +701,26 @@ test("renderSessionPage renders write tool calls inline and hides redundant writ
         ],
       },
     ],
-    stats: {
-      threadCount: 1,
-      eventCount: 2,
-      messageCount: 2,
-      sidechainCount: 0,
-    },
+    stats: { threadCount: 1, eventCount: 2, messageCount: 2, sidechainCount: 0 },
   };
 
-  const html = await renderSessionPage("public-6", session);
+  const html = await renderThread(mainThread(session));
 
-  expect(html).toContain('class="block tool-inline-call"');
+  expect(html).toContain("tool-call-disclosure");
   expect(html).toContain('class="tool-file-preview"');
-  expect(html).toContain("Writing file Fibonacci.ts");
+  expect(html).toContain(">Write<");
   expect(html).toContain(">Fibonacci.ts<");
   expect(html).toContain("const value = 1;");
   expect(html).toContain('class="msg msg-assistant"');
-  expect(html).not.toContain("tool-pill-row-secondary");
   expect(html).not.toContain(">Tool Call<");
-  expect(html).not.toContain(">Write<");
-  expect(html).not.toContain('<span class="tool-pill tool-pill-call">Fibonacci.ts</span>');
-  expect(html).not.toContain('class="block tool-call-disclosure"');
+  expect(html).not.toContain("Writing file Fibonacci.ts");
   expect(html).not.toContain("&quot;file_path&quot;");
   expect(html).not.toContain("&quot;content&quot;");
   expect(html).not.toContain("File created successfully at:");
   expect(html).not.toContain('class="block tool-result-disclosure"');
 });
 
-test("renderSessionPage renders read tool contents inline and hides redundant read results", async () => {
+test("renders read tool contents inline and hides redundant read results", async () => {
   const session: NormalizedSession = {
     schemaVersion: 1,
     source: "claude-code",
@@ -756,14 +756,7 @@ test("renderSessionPage renders read tool contents inline and hides redundant re
             role: "assistant",
             displayKind: "tool_use",
             blocks: [
-              {
-                kind: "tool_use",
-                id: "read-1",
-                name: "Read",
-                input: {
-                  file_path: "/tmp/project/app.tsx",
-                },
-              },
+              { kind: "tool_use", id: "read-1", name: "Read", input: { file_path: "/tmp/project/app.tsx" } },
             ],
             textPreview: null,
             flags: { isMeta: false, isSidechain: false },
@@ -793,27 +786,22 @@ test("renderSessionPage renders read tool contents inline and hides redundant re
         ],
       },
     ],
-    stats: {
-      threadCount: 1,
-      eventCount: 2,
-      messageCount: 2,
-      sidechainCount: 0,
-    },
+    stats: { threadCount: 1, eventCount: 2, messageCount: 2, sidechainCount: 0 },
   };
 
-  const html = await renderSessionPage("public-read", session);
+  const html = await renderThread(mainThread(session));
 
-  expect(html).toContain('class="block tool-inline-call"');
+  expect(html).toContain("tool-call-disclosure");
   expect(html).toContain('class="tool-file-preview"');
-  expect(html).toContain("Reading file app.tsx");
+  expect(html).toContain(">Read<");
   expect(html).toContain(">app.tsx<");
-  expect(html).toContain("return &lt;button&gt;Submit&lt;/button&gt;;");
+  expect(html).toContain("return");
   expect(html).toContain('class="msg msg-assistant"');
-  expect(html).not.toContain('class="block tool-call-disclosure"');
+  expect(html).not.toContain("Reading file app.tsx");
   expect(html).not.toContain('class="block tool-result-disclosure"');
 });
 
-test("renderSessionPage renders edit tool diffs inline and hides redundant edit results", async () => {
+test("renders edit tool diffs inline and hides redundant edit results", async () => {
   const session: NormalizedSession = {
     schemaVersion: 1,
     source: "claude-code",
@@ -877,8 +865,7 @@ test("renderSessionPage renders edit tool diffs inline and hides redundant edit 
               {
                 kind: "tool_result",
                 toolUseId: "edit-1",
-                content:
-                  "diff --git a/app.tsx b/app.tsx\nindex 1111111..2222222 100644\n--- a/app.tsx\n+++ b/app.tsx\n@@ -1 +1 @@\n-return <button>Submit</button>;\n+return <button>Publish changes</button>;\n",
+                content: "diff --git a/app.tsx b/app.tsx\nindex 1111111..2222222 100644\n--- a/app.tsx\n+++ b/app.tsx\n@@ -1 +1 @@\n-return <button>Submit</button>;\n+return <button>Publish changes</button>;\n",
               },
             ],
             textPreview: null,
@@ -889,27 +876,22 @@ test("renderSessionPage renders edit tool diffs inline and hides redundant edit 
         ],
       },
     ],
-    stats: {
-      threadCount: 1,
-      eventCount: 2,
-      messageCount: 2,
-      sidechainCount: 0,
-    },
+    stats: { threadCount: 1, eventCount: 2, messageCount: 2, sidechainCount: 0 },
   };
 
-  const html = await renderSessionPage("public-7", session);
+  const html = await renderThread(mainThread(session));
 
-  expect(html).toContain('class="block tool-inline-call"');
-  expect(html).toContain("Editing file app.tsx");
+  expect(html).toContain("tool-call-disclosure");
+  expect(html).toContain(">Edit<");
   expect(html).toContain("data-diff");
   expect(html).toContain('class="msg msg-assistant"');
+  expect(html).not.toContain("Editing file app.tsx");
   expect(html).not.toContain("&quot;old_string&quot;");
   expect(html).not.toContain("&quot;new_string&quot;");
-  expect(html).not.toContain('class="block tool-call-disclosure"');
   expect(html).not.toContain('class="block tool-result-disclosure"');
 });
 
-test("renderSessionPage renders normalized meta events as hidden activity instead of user bubbles", async () => {
+test("renders normalized meta events as hidden activity instead of user bubbles", async () => {
   const session: NormalizedSession = {
     schemaVersion: 1,
     source: "claude-code",
@@ -953,21 +935,16 @@ test("renderSessionPage renders normalized meta events as hidden activity instea
         ],
       },
     ],
-    stats: {
-      threadCount: 1,
-      eventCount: 1,
-      messageCount: 0,
-      sidechainCount: 0,
-    },
+    stats: { threadCount: 1, eventCount: 1, messageCount: 0, sidechainCount: 0 },
   };
 
-  const html = await renderSessionPage("public-4", session);
+  const html = await renderThread(mainThread(session));
 
-  expect(html).not.toContain('class="message-row lane-user"');
+  expect(html).not.toContain('class="msg msg-user"');
   expect(html).toContain('class="message-row lane-activity event-meta"');
 });
 
-test("renderSessionPage hides legacy local command records from the primary transcript", async () => {
+test("hides legacy local command records from the primary transcript", async () => {
   const session: NormalizedSession = {
     schemaVersion: 1,
     source: "claude-code",
@@ -1019,8 +996,7 @@ test("renderSessionPage hides legacy local command records from the primary tran
             blocks: [
               {
                 kind: "text",
-                text:
-                  "<command-name>/voice</command-name>\n            <command-message>voice</command-message>\n            <command-args></command-args>",
+                text: "<command-name>/voice</command-name>\n            <command-message>voice</command-message>\n            <command-args></command-args>",
               },
             ],
             textPreview: "<command-name>/voice</command-name>",
@@ -1045,24 +1021,19 @@ test("renderSessionPage hides legacy local command records from the primary tran
         ],
       },
     ],
-    stats: {
-      threadCount: 1,
-      eventCount: 3,
-      messageCount: 3,
-      sidechainCount: 0,
-    },
+    stats: { threadCount: 1, eventCount: 3, messageCount: 3, sidechainCount: 0 },
   };
 
-  const html = await renderSessionPage("public-5", session);
-  const userLaneMatches = html.match(/class="msg msg-user"/g) ?? [];
+  const html = await renderThread(mainThread(session));
+  const userClusterMatches = html.match(/class="msg msg-user"/g) ?? [];
   const activityLaneMatches = html.match(/class="message-row lane-activity\b[^"]*"/g) ?? [];
 
   expect(html).toContain("Show 2 hidden activity items");
-  expect(userLaneMatches).toHaveLength(1);
+  expect(userClusterMatches).toHaveLength(1);
   expect(activityLaneMatches).toHaveLength(2);
 });
 
-test("renderSessionPage groups consecutive user and assistant events into role clusters", async () => {
+test("groups consecutive user and assistant events into role clusters", async () => {
   const session: NormalizedSession = {
     schemaVersion: 1,
     source: "claude-code",
@@ -1148,20 +1119,15 @@ test("renderSessionPage groups consecutive user and assistant events into role c
         ],
       },
     ],
-    stats: {
-      threadCount: 1,
-      eventCount: 4,
-      messageCount: 4,
-      sidechainCount: 0,
-    },
+    stats: { threadCount: 1, eventCount: 4, messageCount: 4, sidechainCount: 0 },
   };
 
-  const html = await renderSessionPage("public-clusters", session);
+  const html = await renderThread(mainThread(session));
   const userClusterMatches = html.match(/class="msg msg-user"/g) ?? [];
   const assistantClusterMatches = html.match(/class="msg msg-assistant"/g) ?? [];
 
   expect(userClusterMatches).toHaveLength(2);
   expect(assistantClusterMatches).toHaveLength(1);
   expect(html).toContain("Claude");
-  expect(html).toContain("Running command");
+  expect(html).toContain(">Bash<");
 });

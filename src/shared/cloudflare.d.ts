@@ -28,3 +28,10 @@ interface R2Bucket {
   ): Promise<unknown>;
   get(key: string): Promise<R2ObjectBody | null>;
 }
+
+interface CloudflareEnv {
+  DB: D1Database;
+  SESSIONS_BUCKET: R2Bucket;
+  PUBLIC_BASE_URL?: string;
+  AGENT_THREAD_SERVER_URL?: string;
+}
