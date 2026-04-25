@@ -1,4 +1,4 @@
-import type { ContentBlock, NormalizedEvent } from "../../shared/contracts";
+import type { ContentBlock, NormalizedEvent } from "@/src/shared/contracts";
 
 const LOCAL_COMMAND_PREFIXES = ["<local-command-caveat>", "<command-name>", "<local-command-stdout>"];
 

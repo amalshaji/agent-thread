@@ -1,4 +1,4 @@
-import type { NormalizedEvent } from "../../shared/contracts";
+import type { NormalizedEvent } from "@/src/shared/contracts";
 import { isMetadataEvent } from "./event-classification";
 
 export function isPrimaryEvent(event: NormalizedEvent): boolean {

@@ -1,4 +1,4 @@
-import type { ContentBlock } from "../../shared/contracts";
+import type { ContentBlock } from "@/src/shared/contracts";
 import { extractPatch, renderDiffBlock } from "./diff";
 import { escapeHtml } from "./utils";
 
