@@ -14,7 +14,7 @@
   },
   "scripts": {
     "cli": "bun run ./src/cli/index.ts",
-    "build": "bun --bun ./node_modules/next/dist/bin/next build && bun run scripts/build-cli.ts",
+    "build": "bun --bun ./node_modules/next/dist/bin/next build && bun --bun ./node_modules/@opennextjs/cloudflare/dist/cli/index.js build && bun run scripts/build-cli.ts",
     "build:cli": "bun run scripts/build-cli.ts",
     "dev": "bun --bun ./node_modules/next/dist/bin/next dev",
     "preview": "bun --bun ./node_modules/@opennextjs/cloudflare/dist/cli/index.js build && bun --bun ./node_modules/@opennextjs/cloudflare/dist/cli/index.js preview",
