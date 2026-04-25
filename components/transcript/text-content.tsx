@@ -1,5 +1,5 @@
-import { extractPatch, renderDiffBlock } from "@/src/worker/view/diff";
-import { renderMarkdownInner } from "@/src/worker/view/markdown";
+import { extractPatch, renderDiffBlock } from "@/lib/transcript/diff";
+import { renderMarkdownInner } from "@/lib/transcript/markdown";
 
 function isStandalonePatchText(value: string): boolean {
   const trimmed = value.trimStart();

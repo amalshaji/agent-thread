@@ -3,7 +3,7 @@ import { createElement } from "react";
 import { renderToReadableStream } from "react-dom/server";
 
 import type { NormalizedSession, NormalizedThread } from "../src/shared/contracts";
-import { resetDiffBudget } from "../src/worker/view/diff";
+import { resetDiffBudget } from "../lib/transcript/diff";
 import { Thread } from "../components/transcript/thread";
 
 async function renderThread(thread: NormalizedThread, showHeader = false): Promise<string> {

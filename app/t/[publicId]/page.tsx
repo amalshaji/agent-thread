@@ -9,8 +9,8 @@ import { getAgentThreadEnv } from "@/lib/cloudflare";
 import { loadSessionByPublicId } from "@/lib/storage";
 import type { NormalizedSession } from "@/src/shared/contracts";
 import { Thread } from "@/components/transcript/thread";
-import { resetDiffBudget } from "@/src/worker/view/diff";
-import { formatShortDate, formatShortTime } from "@/src/worker/view/utils";
+import { resetDiffBudget } from "@/lib/transcript/diff";
+import { formatShortDate, formatShortTime } from "@/lib/transcript/utils";
 
 export const dynamic = "force-dynamic";
 

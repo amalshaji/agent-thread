@@ -1,8 +1,8 @@
 import { ImageAttachment } from "./image-attachment";
 import { TextContent } from "./text-content";
-import type { ToolResultBlock } from "@/src/worker/view/tool-inline";
-import { getRenderableImage } from "@/src/worker/view/attachments";
-import { prettyJson } from "@/src/worker/view/utils";
+import type { ToolResultBlock } from "@/lib/transcript/tool-inline";
+import { getRenderableImage } from "@/lib/transcript/attachments";
+import { prettyJson } from "@/lib/transcript/utils";
 
 type RecordValue = Record<string, unknown>;
 function asRecord(v: unknown): RecordValue | null {

@@ -1,4 +1,4 @@
-import { getRenderableImage } from "@/src/worker/view/attachments";
+import { getRenderableImage } from "@/lib/transcript/attachments";
 
 export function ImageAttachment({ value, alt }: { value: unknown; alt: string }) {
   const image = getRenderableImage(value);

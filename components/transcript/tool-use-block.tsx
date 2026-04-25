@@ -1,12 +1,12 @@
-import { extractPatch, renderDiffBlock } from "@/src/worker/view/diff";
+import { extractPatch, renderDiffBlock } from "@/lib/transcript/diff";
 import {
   getToolFilePath,
   getToolMeta,
   getToolResultTextContent,
   basename,
-} from "@/src/worker/view/tool-inline";
-import type { ToolResultBlock, ToolUseBlock } from "@/src/worker/view/tool-inline";
-import { prettyJson } from "@/src/worker/view/utils";
+} from "@/lib/transcript/tool-inline";
+import type { ToolResultBlock, ToolUseBlock } from "@/lib/transcript/tool-inline";
+import { prettyJson } from "@/lib/transcript/utils";
 
 const CHEV_SVG = (
   <svg

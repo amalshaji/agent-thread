@@ -1,10 +1,10 @@
 import type { NormalizedEvent, NormalizedThread } from "@/src/shared/contracts";
 import { Block } from "./block";
-import { isMetadataEvent } from "@/src/worker/view/event-classification";
-import { shouldHideRedundantToolResult } from "@/src/worker/view/tool-inline";
-import type { ToolResultBlock, ToolUseBlock } from "@/src/worker/view/tool-inline";
-import { splitThreadEvents } from "@/src/worker/view/visibility";
-import { formatShortTime, titleCase } from "@/src/worker/view/utils";
+import { isMetadataEvent } from "@/lib/transcript/event-classification";
+import { shouldHideRedundantToolResult } from "@/lib/transcript/tool-inline";
+import type { ToolResultBlock, ToolUseBlock } from "@/lib/transcript/tool-inline";
+import { splitThreadEvents } from "@/lib/transcript/visibility";
+import { formatShortTime, titleCase } from "@/lib/transcript/utils";
 
 type EventLane = "user" | "assistant" | "system" | "activity";
 type ConversationLane = "user" | "assistant";

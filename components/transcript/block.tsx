@@ -3,9 +3,9 @@ import { ImageAttachment } from "./image-attachment";
 import { TextContent } from "./text-content";
 import { ToolUseBlockComponent } from "./tool-use-block";
 import { ToolResultBlockComponent } from "./tool-result-block";
-import { getRenderableImage } from "@/src/worker/view/attachments";
-import { prettyJson } from "@/src/worker/view/utils";
-import type { ToolResultBlock, ToolUseBlock } from "@/src/worker/view/tool-inline";
+import { getRenderableImage } from "@/lib/transcript/attachments";
+import { prettyJson } from "@/lib/transcript/utils";
+import type { ToolResultBlock, ToolUseBlock } from "@/lib/transcript/tool-inline";
 
 interface BlockContext {
   toolUseMap?: Map<string, ToolUseBlock>;
