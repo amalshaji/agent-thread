@@ -281,12 +281,33 @@ export const transcriptStyles = `
   .tool-pill-result { color: var(--muted); opacity: 0.7; }
   .tool-pill-raw { color: var(--muted); }
 
-  /* Tool call panel inside disclosure */
+  /* Tool call panel inside disclosure — non-inline (json/diff payloads) */
   .tool-call-panel {
     display: grid;
     gap: 8px;
     padding: 12px;
     background: var(--surface);
+  }
+
+  /* Inline previews (Write/Read/Edit) render flush — no double border */
+  .tool-call-disclosure > .tool-file-preview {
+    border: 0;
+    border-top: 1px solid var(--border);
+    border-radius: 0;
+  }
+
+  .tool-call-disclosure > .tool-file-preview .tool-file-header {
+    border-radius: 0;
+  }
+
+  /* Raw payload flush when directly inside disclosure */
+  .tool-call-disclosure > .tool-payload {
+    border: 0;
+    border-top: 1px solid var(--border);
+    border-radius: 0;
+    background: transparent;
+    margin: 0;
+    max-height: 400px;
   }
 
   /* Tool result disclosure */

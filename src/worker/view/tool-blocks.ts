@@ -185,11 +185,7 @@ export async function renderToolUseBlock(
     return `
       <details class="block tool-call-disclosure ${colorClass}" open>
         <summary>${summaryInner}</summary>
-        <div class="tool-call-panel">
-          <div class="tool-shell">
-            ${payloadHtml}
-          </div>
-        </div>
+        ${payloadHtml}
       </details>
     `;
   }
@@ -198,10 +194,8 @@ export async function renderToolUseBlock(
     <details class="block tool-call-disclosure ${colorClass}">
       <summary>${summaryInner}</summary>
       <div class="tool-call-panel">
-        <div class="tool-shell">
-          ${diffHtml ?? ""}
-          ${payloadHtml}
-        </div>
+        ${diffHtml ?? ""}
+        ${payloadHtml}
       </div>
     </details>
   `;
