@@ -9,10 +9,10 @@ export function escapeHtml(value: string): string {
 
 export function prettyJson(value: unknown): string {
   if (typeof value === "string") {
-    return escapeHtml(value);
+    return value;
   }
 
-  return escapeHtml(JSON.stringify(value, null, 2));
+  return JSON.stringify(value, null, 2);
 }
 
 export function formatTimestamp(value: string | null): string {

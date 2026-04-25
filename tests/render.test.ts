@@ -388,6 +388,59 @@ test("keeps tool calls and results in the assistant lane", async () => {
   expect(html).toContain("1 response");
 });
 
+test("renders generic tool inputs as readable JSON without a nested payload frame", async () => {
+  const thread: NormalizedThread = {
+    id: "thread-agent-json",
+    kind: "main",
+    sessionId: "session-agent-json",
+    agentId: null,
+    sourceFileName: "session-agent-json.jsonl",
+    sourceRelativePath: "project-agent-json/session-agent-json.jsonl",
+    cwd: "/tmp/project",
+    gitBranch: "main",
+    startedAt: "2026-03-27T00:00:00.000Z",
+    rootEventIds: ["tool-use-agent"],
+    events: [
+      {
+        id: "tool-use-agent",
+        parentId: null,
+        seq: 0,
+        timestamp: "2026-03-27T00:00:01.000Z",
+        topLevelType: "assistant",
+        role: "assistant",
+        displayKind: "tool_use",
+        blocks: [
+          {
+            kind: "tool_use",
+            id: "agent-1",
+            name: "Agent",
+            input: {
+              description: "Find Claude Code session storage location",
+              subagent_type: "claude-code-guide",
+              prompt: "Where are local Claude Code sessions/conversations stored on disk? Include <path>.",
+            },
+          },
+        ],
+        textPreview: null,
+        flags: { isMeta: false, isSidechain: false },
+        refs: {},
+        meta: {},
+      },
+    ],
+  };
+
+  const html = await renderThread(thread);
+
+  expect(html).toContain(">Agent<");
+  expect(html).toContain('class="tool-payload tool-call-payload"');
+  expect(html).not.toContain("tool-call-panel");
+  expect(html).toContain("&quot;description&quot;");
+  expect(html).toContain("Find Claude Code session storage location");
+  expect(html).toContain("&lt;path&gt;");
+  expect(html).not.toContain("&amp;quot;description&amp;quot;");
+  expect(html).not.toContain("&amp;lt;path&amp;gt;");
+});
+
 test("renders structured tool result text as markdown instead of JSON", async () => {
   const session: NormalizedSession = {
     schemaVersion: 1,

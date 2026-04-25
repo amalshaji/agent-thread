@@ -195,17 +195,21 @@ export async function ToolUseBlockComponent({
     );
   }
 
+  const payload = <pre className="tool-payload tool-call-payload">{prettyJson(block.input)}</pre>;
+
   return (
     <details className={`block tool-call-disclosure ${colorClass}`}>
       <summary>
         <ToolCallSummary name={block.name} input={block.input} />
       </summary>
-      <div className="tool-call-panel">
-        {diffHtml ? (
+      {diffHtml ? (
+        <div className="tool-call-panel">
           <div dangerouslySetInnerHTML={{ __html: diffHtml }} />
-        ) : null}
-        <pre className="tool-payload">{prettyJson(block.input)}</pre>
-      </div>
+          {payload}
+        </div>
+      ) : (
+        payload
+      )}
     </details>
   );
 }
