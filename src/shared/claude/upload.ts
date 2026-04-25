@@ -1,3 +1,4 @@
+import { readFile } from "node:fs/promises";
 import { join, relative } from "node:path";
 
 import type { NormalizedSession, RawUploadFile, UploadRequest } from "../contracts";
@@ -12,7 +13,7 @@ async function buildRawUploadFile(transcript: ClaudeTranscriptSummary): Promise<
     kind: transcript.kind,
     fileName: transcript.fileName,
     relativePath: transcript.relativePath,
-    content: await Bun.file(transcript.path).text(),
+    content: await readFile(transcript.path, "utf8"),
   };
 }
 

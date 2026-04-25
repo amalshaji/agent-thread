@@ -1,7 +1,11 @@
-import { readdir } from "node:fs/promises";
+import { execFile } from "node:child_process";
+import { readFile, readdir } from "node:fs/promises";
 import { join } from "node:path";
+import { promisify } from "node:util";
 
 import type { ClaudeEvent } from "./types";
+
+const execFileAsync = promisify(execFile);
 
 export async function maybeReadDir(path: string): Promise<string[] | null> {
   try {
@@ -22,19 +26,8 @@ export async function maybeProjectDirs(projectsRoot: string): Promise<string[]> 
 
 export async function getGitRoot(cwd: string): Promise<string | null> {
   try {
-    const proc = Bun.spawn(["git", "rev-parse", "--show-toplevel"], {
-      cwd,
-      stdout: "pipe",
-      stderr: "ignore",
-    });
-    const output = await new Response(proc.stdout).text();
-    const exitCode = await proc.exited;
-
-    if (exitCode !== 0) {
-      return null;
-    }
-
-    const gitRoot = output.trim();
+    const { stdout } = await execFileAsync("git", ["rev-parse", "--show-toplevel"], { cwd });
+    const gitRoot = stdout.trim();
     return gitRoot.length > 0 ? gitRoot : null;
   } catch {
     return null;
@@ -50,5 +43,5 @@ export function parseJsonLines(text: string): ClaudeEvent[] {
 }
 
 export async function readClaudeEvents(path: string): Promise<ClaudeEvent[]> {
-  return parseJsonLines(await Bun.file(path).text());
+  return parseJsonLines(await readFile(path, "utf8"));
 }
