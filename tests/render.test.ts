@@ -395,7 +395,7 @@ test("renderSessionPage keeps tool calls and results in the assistant lane", asy
   expect(html).not.toContain('class="message-row lane-system');
   expect(html).not.toContain("Tool Result");
   expect(html).not.toContain(">Tool Call<");
-  expect(html).toContain("Running agent");
+  expect(html).toContain(">Agent<");
   expect(html).toContain('class="block tool-result-disclosure"');
   expect(html).toContain("Tool output");
   expect(html).toContain("1 response");
@@ -703,17 +703,17 @@ test("renderSessionPage renders write tool calls inline and hides redundant writ
 
   const html = await renderSessionPage("public-6", session);
 
-  expect(html).toContain('class="block tool-inline-call"');
+  expect(html).toContain('tool-call-disclosure');
   expect(html).toContain('class="tool-file-preview"');
-  expect(html).toContain("Writing file Fibonacci.ts");
+  expect(html).toContain(">Write<");
   expect(html).toContain(">Fibonacci.ts<");
   expect(html).toContain("const value = 1;");
   expect(html).toContain('class="msg msg-assistant"');
   expect(html).not.toContain("tool-pill-row-secondary");
   expect(html).not.toContain(">Tool Call<");
-  expect(html).not.toContain(">Write<");
+  expect(html).not.toContain("Writing file Fibonacci.ts");
   expect(html).not.toContain('<span class="tool-pill tool-pill-call">Fibonacci.ts</span>');
-  expect(html).not.toContain('class="block tool-call-disclosure"');
+  expect(html).not.toContain('class="block tool-inline-call"');
   expect(html).not.toContain("&quot;file_path&quot;");
   expect(html).not.toContain("&quot;content&quot;");
   expect(html).not.toContain("File created successfully at:");
@@ -803,13 +803,14 @@ test("renderSessionPage renders read tool contents inline and hides redundant re
 
   const html = await renderSessionPage("public-read", session);
 
-  expect(html).toContain('class="block tool-inline-call"');
+  expect(html).toContain('tool-call-disclosure');
   expect(html).toContain('class="tool-file-preview"');
-  expect(html).toContain("Reading file app.tsx");
+  expect(html).toContain(">Read<");
   expect(html).toContain(">app.tsx<");
   expect(html).toContain("return &lt;button&gt;Submit&lt;/button&gt;;");
   expect(html).toContain('class="msg msg-assistant"');
-  expect(html).not.toContain('class="block tool-call-disclosure"');
+  expect(html).not.toContain("Reading file app.tsx");
+  expect(html).not.toContain('class="block tool-inline-call"');
   expect(html).not.toContain('class="block tool-result-disclosure"');
 });
 
@@ -899,13 +900,14 @@ test("renderSessionPage renders edit tool diffs inline and hides redundant edit 
 
   const html = await renderSessionPage("public-7", session);
 
-  expect(html).toContain('class="block tool-inline-call"');
-  expect(html).toContain("Editing file app.tsx");
+  expect(html).toContain('tool-call-disclosure');
+  expect(html).toContain(">Edit<");
   expect(html).toContain("data-diff");
   expect(html).toContain('class="msg msg-assistant"');
+  expect(html).not.toContain("Editing file app.tsx");
   expect(html).not.toContain("&quot;old_string&quot;");
   expect(html).not.toContain("&quot;new_string&quot;");
-  expect(html).not.toContain('class="block tool-call-disclosure"');
+  expect(html).not.toContain('class="block tool-inline-call"');
   expect(html).not.toContain('class="block tool-result-disclosure"');
 });
 
@@ -1163,5 +1165,5 @@ test("renderSessionPage groups consecutive user and assistant events into role c
   expect(userClusterMatches).toHaveLength(2);
   expect(assistantClusterMatches).toHaveLength(1);
   expect(html).toContain("Claude");
-  expect(html).toContain("Running command");
+  expect(html).toContain(">Bash<");
 });

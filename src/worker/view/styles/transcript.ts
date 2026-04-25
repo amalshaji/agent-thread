@@ -211,7 +211,57 @@ export const transcriptStyles = `
   }
 
   .tool-pill-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-  .tool-pill-row-primary { display: inline-flex; gap: 5px; flex-wrap: nowrap; width: fit-content; }
+  .tool-pill-row-primary { display: inline-flex; gap: 5px; flex-wrap: nowrap; align-items: center; flex: 1; min-width: 0; }
+
+  /* Tool call icon — colored chip */
+  .tool-call-icon {
+    width: 18px;
+    height: 18px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    flex-shrink: 0;
+  }
+
+  .tool-color-blue   .tool-call-icon { background: var(--c-blue-soft);   color: var(--c-blue); }
+  .tool-color-purple .tool-call-icon { background: var(--c-purple-soft); color: var(--c-purple); }
+  .tool-color-amber  .tool-call-icon { background: var(--c-amber-soft);  color: var(--c-amber); }
+  .tool-color-green  .tool-call-icon { background: var(--c-green-soft);  color: var(--c-green); }
+  .tool-color-cyan   .tool-call-icon { background: var(--c-cyan-soft);   color: var(--c-cyan); }
+  .tool-color-gray   .tool-call-icon { background: var(--c-gray-soft);   color: var(--c-gray); }
+  .tool-color-pink   .tool-call-icon { background: var(--c-pink-soft);   color: var(--c-pink); }
+
+  /* Tool call summary text */
+  .tool-call-sep {
+    color: var(--faint);
+    font-size: 11px;
+    flex-shrink: 0;
+  }
+
+  .tool-call-summary {
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    color: var(--muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    min-width: 0;
+  }
+
+  /* Chevron — right-aligned, rotates on open */
+  .tool-call-chev {
+    display: inline-flex;
+    align-items: center;
+    color: var(--faint);
+    margin-left: auto;
+    flex-shrink: 0;
+    transition: transform 140ms ease;
+  }
+
+  .tool-call-disclosure[open] .tool-call-chev {
+    transform: rotate(90deg);
+  }
 
   .tool-pill {
     display: inline-flex;

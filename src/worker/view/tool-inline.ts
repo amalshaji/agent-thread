@@ -86,6 +86,60 @@ function getToolResultTextContent(content: unknown): string | null {
   return null;
 }
 
+export type ToolColor = "blue" | "purple" | "amber" | "green" | "cyan" | "gray" | "pink";
+
+export interface ToolMeta {
+  shortName: string;
+  color: ToolColor;
+  iconPaths: string;
+  summary: string;
+}
+
+const TOOL_ICONS: Record<string, string> = {
+  file: '<path d="M4 2h5l3 3v9H4z"/><polyline points="9,2 9,5 12,5"/>',
+  edit: '<path d="M3 13l2-.5L12 5.5 10.5 4 3.5 11 3 13z"/>',
+  terminal: '<polyline points="3,5 6,8 3,11"/><line x1="8" y1="11" x2="13" y2="11"/>',
+  sparkle: '<path d="M8 2v5M8 9v5M2 8h5M9 8h5"/>',
+  link: '<path d="M7 9a3 3 0 0 0 4 0l2-2a3 3 0 0 0-4-4L8 4"/><path d="M9 7a3 3 0 0 0-4 0L3 9a3 3 0 0 0 4 4l1-1"/>',
+  grep: '<path d="M3 4h10M3 8h10M3 12h6"/>',
+  dot: '<circle cx="8" cy="8" r="2" fill="currentColor" stroke="none"/>',
+};
+
+export function getToolMeta(name: string, input: unknown): ToolMeta {
+  const fileName = getToolFileName(input);
+  const record = asRecord(input);
+  const n = name.toLowerCase();
+
+  switch (n) {
+    case "write":
+      return { shortName: "Write", color: "purple", iconPaths: TOOL_ICONS.edit, summary: fileName ?? "" };
+    case "edit":
+      return { shortName: "Edit", color: "purple", iconPaths: TOOL_ICONS.edit, summary: fileName ?? "" };
+    case "multiedit":
+      return { shortName: "Edit", color: "purple", iconPaths: TOOL_ICONS.edit, summary: fileName ?? "" };
+    case "read":
+      return { shortName: "Read", color: "blue", iconPaths: TOOL_ICONS.file, summary: fileName ?? "" };
+    case "bash": {
+      const cmd = typeof record?.command === "string" ? record.command.trim().split("\n")[0] : "";
+      return { shortName: "Bash", color: "gray", iconPaths: TOOL_ICONS.terminal, summary: cmd.substring(0, 60) };
+    }
+    case "agent":
+      return { shortName: "Agent", color: "pink", iconPaths: TOOL_ICONS.sparkle, summary: "" };
+    case "webfetch":
+      return { shortName: "Fetch", color: "cyan", iconPaths: TOOL_ICONS.link, summary: "" };
+    case "websearch": {
+      const q = typeof record?.query === "string" ? record.query.substring(0, 40) : "";
+      return { shortName: "Search", color: "cyan", iconPaths: TOOL_ICONS.link, summary: q };
+    }
+    case "grep":
+      return { shortName: "Grep", color: "amber", iconPaths: TOOL_ICONS.grep, summary: fileName ?? "" };
+    case "glob":
+      return { shortName: "Glob", color: "amber", iconPaths: TOOL_ICONS.grep, summary: fileName ?? "" };
+    default:
+      return { shortName: name, color: "gray", iconPaths: TOOL_ICONS.dot, summary: fileName ?? "" };
+  }
+}
+
 export function getToolIntentLabel(name: string, input: unknown): string {
   const fileName = getToolFileName(input);
 

@@ -3,7 +3,7 @@ import { extractPatch, renderDiffBlock } from "./diff";
 import { renderImageAttachment } from "./attachments";
 import { renderTextContent } from "./text-content";
 import type { ToolResultBlock, ToolUseBlock } from "./tool-inline";
-import { getToolIntentLabel, renderInlineToolUsePreview } from "./tool-inline";
+import { getToolMeta, renderInlineToolUsePreview } from "./tool-inline";
 import { escapeHtml, prettyJson } from "./utils";
 
 type ToolRenderableBlock = Extract<ContentBlock, { kind: "tool_use" | "tool_result" | "raw" }>;
@@ -11,6 +11,18 @@ type ToolInputRecord = Record<string, unknown>;
 
 function renderToolPill(label: string, variant: "call" | "result" | "raw"): string {
   return `<span class="tool-pill tool-pill-${variant}">${escapeHtml(label)}</span>`;
+}
+
+const CHEV_SVG = `<svg width="10" height="10" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6,4 10,8 6,12"/></svg>`;
+
+function renderToolCallSummaryInner(name: string, input: unknown): { colorClass: string; html: string } {
+  const meta = getToolMeta(name, input);
+  const iconSvg = `<svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${meta.iconPaths}</svg>`;
+  const iconEl = `<span class="tool-call-icon">${iconSvg}</span>`;
+  const nameEl = `<span class="tool-pill tool-pill-call">${escapeHtml(meta.shortName)}</span>`;
+  const summaryEl = meta.summary ? `<span class="tool-call-sep">—</span><span class="tool-call-summary">${escapeHtml(meta.summary)}</span>` : "";
+  const html = `<span class="tool-pill-row tool-pill-row-primary">${iconEl}${nameEl}${summaryEl}</span><span class="tool-call-chev">${CHEV_SVG}</span>`;
+  return { colorClass: `tool-color-${meta.color}`, html };
 }
 
 function asRecord(value: unknown): ToolInputRecord | null {
@@ -163,7 +175,7 @@ export async function renderToolUseBlock(
   block: Extract<ContentBlock, { kind: "tool_use" }>,
   relatedResult?: ToolResultBlock,
 ): Promise<string> {
-  const intentLabel = getToolIntentLabel(block.name, block.input);
+  const { colorClass, html: summaryInner } = renderToolCallSummaryInner(block.name, block.input);
   const inlinePreview = await renderInlineToolUsePreview(block, relatedResult);
   const patch = extractPatch(block.input);
   const diffHtml = inlinePreview ? null : patch ? await renderDiffBlock(patch) : null;
@@ -171,26 +183,20 @@ export async function renderToolUseBlock(
 
   if (inlinePreview) {
     return `
-      <div class="block tool-inline-call">
-        <div class="tool-pill-row tool-pill-row-primary">
-          ${renderToolPill(intentLabel, "call")}
-        </div>
+      <details class="block tool-call-disclosure ${colorClass}" open>
+        <summary>${summaryInner}</summary>
         <div class="tool-call-panel">
           <div class="tool-shell">
             ${payloadHtml}
           </div>
         </div>
-      </div>
+      </details>
     `;
   }
 
   return `
-    <details class="block tool-call-disclosure">
-      <summary>
-        <span class="tool-pill-row tool-pill-row-primary">
-          ${renderToolPill(intentLabel, "call")}
-        </span>
-      </summary>
+    <details class="block tool-call-disclosure ${colorClass}">
+      <summary>${summaryInner}</summary>
       <div class="tool-call-panel">
         <div class="tool-shell">
           ${diffHtml ?? ""}
