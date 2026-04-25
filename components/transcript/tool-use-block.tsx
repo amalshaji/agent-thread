@@ -73,6 +73,46 @@ function ToolFilePreview({ content, fileName }: { content: string; fileName: str
   );
 }
 
+function splitLines(value: string): string[] {
+  const normalized = value.replace(/\r\n/g, "\n");
+  const trimmed = normalized.endsWith("\n") ? normalized.slice(0, -1) : normalized;
+  return trimmed.length > 0 ? trimmed.split("\n") : [""];
+}
+
+function buildSyntheticPatch(fileName: string, oldString: string, newString: string): string {
+  const oldLines = splitLines(oldString);
+  const newLines = splitLines(newString);
+  const fmtCount = (n: number) => (n === 1 ? "1" : `1,${n}`);
+  return [
+    `diff --git a/${fileName} b/${fileName}`,
+    `--- a/${fileName}`,
+    `+++ b/${fileName}`,
+    `@@ -${fmtCount(oldLines.length)} +${fmtCount(newLines.length)} @@`,
+    ...oldLines.map((l) => `-${l}`),
+    ...newLines.map((l) => `+${l}`),
+    "",
+  ].join("\n");
+}
+
+function collectEditPatches(input: unknown): string[] {
+  const record = asRecord(input);
+  if (!record) return [];
+  const fileName = getToolFileName(input) ?? "file";
+  const directOld = typeof record.old_string === "string" ? record.old_string : null;
+  const directNew = typeof record.new_string === "string" ? record.new_string : null;
+  if (directOld !== null && directNew !== null) {
+    return [buildSyntheticPatch(fileName, directOld, directNew)];
+  }
+  if (!Array.isArray(record.edits)) return [];
+  return record.edits
+    .map((entry) => {
+      const edit = asRecord(entry);
+      if (!edit || typeof edit.old_string !== "string" || typeof edit.new_string !== "string") return null;
+      return buildSyntheticPatch(fileName, edit.old_string, edit.new_string);
+    })
+    .filter((p): p is string => p !== null);
+}
+
 function getToolFileName(input: unknown): string | null {
   const path = getToolFilePath(input);
   return path ? basename(path) : null;
@@ -114,6 +154,12 @@ async function getInlinePreview(
       const html = await renderDiffBlock(directPatch);
       if (html) return { kind: "diff", html };
     }
+    // Build synthetic patch from old_string/new_string
+    const patches = collectEditPatches(block.input);
+    if (patches.length > 0) {
+      const rendered = (await Promise.all(patches.map(renderDiffBlock))).filter((h): h is string => h !== null);
+      if (rendered.length > 0) return { kind: "diff", html: rendered.join("") };
+    }
     return null;
   }
 
@@ -143,7 +189,7 @@ export async function ToolUseBlockComponent({
         {preview.kind === "file" ? (
           <ToolFilePreview content={preview.content} fileName={preview.fileName} />
         ) : (
-          <pre className="diff-view" data-diff dangerouslySetInnerHTML={{ __html: preview.html }} />
+          <div dangerouslySetInnerHTML={{ __html: preview.html }} />
         )}
       </details>
     );
@@ -156,7 +202,7 @@ export async function ToolUseBlockComponent({
       </summary>
       <div className="tool-call-panel">
         {diffHtml ? (
-          <pre className="diff-view" data-diff dangerouslySetInnerHTML={{ __html: diffHtml }} />
+          <div dangerouslySetInnerHTML={{ __html: diffHtml }} />
         ) : null}
         <pre className="tool-payload">{prettyJson(block.input)}</pre>
       </div>

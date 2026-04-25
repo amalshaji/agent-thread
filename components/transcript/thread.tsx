@@ -272,8 +272,7 @@ export async function Thread({
       {hiddenEvents.length > 0 ? (
         <details className="thread-extras">
           <summary>
-            Show {hiddenEvents.length} hidden activity{" "}
-            {hiddenEvents.length === 1 ? "item" : "items"}
+            {`Show ${hiddenEvents.length} hidden activity ${hiddenEvents.length === 1 ? "item" : "items"}`}
           </summary>
           <div className="events thread-extras-feed">
             <EventFeed

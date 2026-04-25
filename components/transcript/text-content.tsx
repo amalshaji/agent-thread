@@ -16,7 +16,8 @@ export async function TextContent({ text }: { text: string }) {
   if (patch) {
     const diffHtml = await renderDiffBlock(patch);
     if (diffHtml) {
-      return <pre className="diff-view" data-diff dangerouslySetInnerHTML={{ __html: diffHtml }} />;
+      // renderDiffBlock returns a <pre> element; inject it directly
+      return <div dangerouslySetInnerHTML={{ __html: diffHtml }} />;
     }
   }
 
