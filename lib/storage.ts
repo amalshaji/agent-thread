@@ -32,7 +32,7 @@ export function getPublicBaseUrl(requestUrl: string, explicitBaseUrl?: string): 
 }
 
 export async function putRawFiles(bucket: R2Bucket, uploadId: string, request: UploadRequest): Promise<string> {
-  const rawPrefix = `raw/claude/${uploadId}`;
+  const rawPrefix = `raw/${request.source}/${uploadId}`;
 
   await Promise.all(
     request.rawFiles.map((file) =>

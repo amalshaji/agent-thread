@@ -1,5 +1,18 @@
-import { buildUploadRequest, type DiscoveredClaudeSession } from "../shared/claude";
+import { buildUploadRequest as buildClaudeUploadRequest, type DiscoveredClaudeSession } from "../shared/claude";
+import { buildUploadRequest as buildCodexUploadRequest, type DiscoveredCodexSession } from "../shared/codex";
 import type { UploadResponse } from "../shared/contracts";
+
+type UploadSelection =
+  | {
+      provider: "claude";
+      session: DiscoveredClaudeSession;
+      claudeHome?: string;
+    }
+  | {
+      provider: "codex";
+      session: DiscoveredCodexSession;
+      codexHome?: string;
+    };
 
 function summarizeBody(body: string): string {
   const normalized = body.replace(/\s+/g, " ").trim();
@@ -51,10 +64,12 @@ export async function formatUploadFailure(response: Response, uploadUrl: URL): P
 
 export async function uploadSelection(
   serverUrl: string,
-  session: DiscoveredClaudeSession,
-  claudeHome?: string,
+  selection: UploadSelection,
 ): Promise<UploadResponse> {
-  const request = await buildUploadRequest(session, claudeHome);
+  const request =
+    selection.provider === "codex"
+      ? await buildCodexUploadRequest(selection.session, selection.codexHome)
+      : await buildClaudeUploadRequest(selection.session, selection.claudeHome);
   const uploadUrl = new URL("/api/uploads", serverUrl);
   const response = await fetch(uploadUrl, {
     method: "POST",

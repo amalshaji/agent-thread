@@ -1,7 +1,8 @@
 import { describe, expect, test } from "bun:test";
 
-import { DEFAULT_SERVER_URL, resolveServerUrl } from "../src/cli/args";
+import { DEFAULT_SERVER_URL, parseArgs, resolveServerUrl } from "../src/cli/args";
 import { formatUploadFailure } from "../src/cli/upload";
+import { isUploadRequest } from "../lib/validation";
 
 describe("CLI server URL resolution", () => {
   test("defaults to the deployed custom domain", () => {
@@ -10,6 +11,48 @@ describe("CLI server URL resolution", () => {
 
   test("respects AGENT_THREAD_SERVER_URL overrides", () => {
     expect(resolveServerUrl({ AGENT_THREAD_SERVER_URL: "https://127.0.0.1:8787" })).toBe("https://127.0.0.1:8787");
+  });
+});
+
+describe("CLI provider args", () => {
+  test("defaults to Claude and accepts Codex flags", () => {
+    expect(parseArgs([]).provider).toBe("claude");
+    expect(parseArgs(["--codex", "--codex-home", "/tmp/codex"]).provider).toBe("codex");
+    expect(parseArgs(["--codex", "--claude"]).provider).toBe("claude");
+  });
+});
+
+describe("upload validation", () => {
+  test("accepts Codex as a persisted upload source", () => {
+    expect(
+      isUploadRequest({
+        schemaVersion: 1,
+        source: "codex",
+        sessionId: "session-1",
+        rawFiles: [],
+        normalized: {
+          schemaVersion: 1,
+          source: "codex",
+          importedAt: "2026-04-25T00:00:00.000Z",
+          root: {
+            sessionId: "session-1",
+            projectKey: "project",
+            projectPath: null,
+            title: null,
+            cwd: null,
+            gitBranch: null,
+            startedAt: null,
+          },
+          threads: [],
+          stats: {
+            threadCount: 0,
+            eventCount: 0,
+            messageCount: 0,
+            sidechainCount: 0,
+          },
+        },
+      }),
+    ).toBe(true);
   });
 });
 

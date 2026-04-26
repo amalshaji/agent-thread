@@ -1131,3 +1131,97 @@ test("groups consecutive user and assistant events into role clusters", async ()
   expect(html).toContain("Claude");
   expect(html).toContain(">Bash<");
 });
+
+test("groups parallel tool calls with matching outputs", async () => {
+  const thread: NormalizedThread = {
+    id: "thread-parallel",
+    kind: "main",
+    sessionId: "session-parallel",
+    agentId: null,
+    sourceFileName: "session-parallel.jsonl",
+    sourceRelativePath: "project-parallel/session-parallel.jsonl",
+    cwd: "/tmp/project",
+    gitBranch: "main",
+    startedAt: "2026-03-27T00:00:00.000Z",
+    rootEventIds: ["assistant-1"],
+    events: [
+      {
+        id: "assistant-1",
+        parentId: null,
+        seq: 0,
+        timestamp: "2026-03-27T00:00:01.000Z",
+        topLevelType: "assistant",
+        role: "assistant",
+        displayKind: "message",
+        blocks: [{ kind: "text", text: "I will inspect a few files." }],
+        textPreview: "I will inspect a few files.",
+        flags: { isMeta: false, isSidechain: false },
+        refs: {},
+        meta: {},
+      },
+      {
+        id: "call-1-event",
+        parentId: null,
+        seq: 1,
+        timestamp: "2026-03-27T00:00:02.000Z",
+        topLevelType: "response_item.function_call",
+        role: "assistant",
+        displayKind: "tool_use",
+        blocks: [{ kind: "tool_use", id: "call-1", name: "exec_command", input: { cmd: "pwd" } }],
+        textPreview: null,
+        flags: { isMeta: false, isSidechain: false },
+        refs: {},
+        meta: {},
+      },
+      {
+        id: "call-2-event",
+        parentId: null,
+        seq: 2,
+        timestamp: "2026-03-27T00:00:02.000Z",
+        topLevelType: "response_item.function_call",
+        role: "assistant",
+        displayKind: "tool_use",
+        blocks: [{ kind: "tool_use", id: "call-2", name: "exec_command", input: { cmd: "ls" } }],
+        textPreview: null,
+        flags: { isMeta: false, isSidechain: false },
+        refs: {},
+        meta: {},
+      },
+      {
+        id: "call-1-output",
+        parentId: null,
+        seq: 3,
+        timestamp: "2026-03-27T00:00:03.000Z",
+        topLevelType: "response_item.function_call_output",
+        role: "assistant",
+        displayKind: "tool_result",
+        blocks: [{ kind: "tool_result", toolUseId: "call-1", content: "/tmp/project" }],
+        textPreview: "/tmp/project",
+        flags: { isMeta: false, isSidechain: false },
+        refs: {},
+        meta: {},
+      },
+      {
+        id: "call-2-output",
+        parentId: null,
+        seq: 4,
+        timestamp: "2026-03-27T00:00:03.000Z",
+        topLevelType: "response_item.function_call_output",
+        role: "assistant",
+        displayKind: "tool_result",
+        blocks: [{ kind: "tool_result", toolUseId: "call-2", content: "package.json" }],
+        textPreview: "package.json",
+        flags: { isMeta: false, isSidechain: false },
+        refs: {},
+        meta: {},
+      },
+    ],
+  };
+
+  const html = await renderThread(thread);
+
+  expect(html).toContain("Parallel tool calls");
+  expect(html).toMatch(/2(?:<!-- -->)? calls/);
+  expect(html).toContain("/tmp/project");
+  expect(html).toContain("package.json");
+});

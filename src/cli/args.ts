@@ -1,6 +1,8 @@
 export interface CliOptions {
   cwd: string;
+  provider: "claude" | "codex";
   claudeHome?: string;
+  codexHome?: string;
   serverUrl: string;
   latest: boolean;
   json: boolean;
@@ -17,8 +19,11 @@ export function usage(): string {
     "Usage: bunx agent-thread [options]",
     "",
     "Options:",
-    "  --cwd <path>          Inspect Claude sessions for a different directory",
+    "  --codex               Inspect Codex threads instead of Claude sessions",
+    "  --claude              Inspect Claude sessions (default)",
+    "  --cwd <path>          Inspect sessions for a different directory",
     "  --claude-home <path>  Override the Claude home directory",
+    "  --codex-home <path>   Override the Codex home directory",
     "  --server <url>        Server base URL",
     "  --latest              Upload the latest session without prompting",
     "  --json                Print the result as JSON",
@@ -29,6 +34,7 @@ export function usage(): string {
 export function parseArgs(argv: string[]): CliOptions {
   const options: CliOptions = {
     cwd: process.cwd(),
+    provider: "claude",
     serverUrl: resolveServerUrl(),
     latest: false,
     json: false,
@@ -42,12 +48,22 @@ export function parseArgs(argv: string[]): CliOptions {
     }
 
     switch (arg) {
+      case "--codex":
+        options.provider = "codex";
+        break;
+      case "--claude":
+        options.provider = "claude";
+        break;
       case "--cwd":
         options.cwd = argv[index + 1] ?? options.cwd;
         index += 1;
         break;
       case "--claude-home":
         options.claudeHome = argv[index + 1];
+        index += 1;
+        break;
+      case "--codex-home":
+        options.codexHome = argv[index + 1];
         index += 1;
         break;
       case "--server":

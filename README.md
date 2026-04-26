@@ -1,11 +1,12 @@
 # agent-thread
 
-Claude session uploader and share viewer built with Bun, Next.js, shadcn/ui, OpenNext, and Cloudflare Workers.
+Claude Code and Codex session uploader and share viewer built with Bun, Next.js, shadcn/ui, OpenNext, and Cloudflare Workers.
 
 ## What works now
 
 - `bunx agent-thread` style CLI entrypoint via the `agent-thread` binary
 - Claude session discovery from `~/.claude/projects`
+- Codex thread discovery from `~/.codex/sessions`
 - Interactive selection of sessions for the current directory
 - Upload endpoint as a Next route handler
 - Server-rendered share page backed by D1 metadata and R2 session storage
@@ -36,10 +37,17 @@ Or upload the latest session without a prompt:
 AGENT_THREAD_SERVER_URL=http://127.0.0.1:3000 bun run cli --latest
 ```
 
+Upload Codex threads instead of the default Claude provider:
+
+```bash
+AGENT_THREAD_SERVER_URL=http://127.0.0.1:3000 bun run cli --codex
+```
+
 Without `AGENT_THREAD_SERVER_URL`, the CLI defaults to the deployed Worker:
 
 ```bash
 bunx agent-thread
+npx agent-thread --codex
 ```
 
 Current default: `https://agent-thread.com`
