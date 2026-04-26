@@ -16,7 +16,7 @@ export function CopyCommandRow({ command }: CopyCommandRowProps) {
   const copy = async () => {
     await navigator.clipboard?.writeText(command);
     setCopied(true);
-    toast.success("Command copied");
+    toast("Command copied");
     window.setTimeout(() => setCopied(false), 1500);
   };
 

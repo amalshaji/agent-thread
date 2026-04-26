@@ -4,7 +4,8 @@ import { cancel, intro, outro, spinner } from "@clack/prompts";
 
 import { parseArgs, type CliOptions } from "./args";
 import { formatSessionLabel } from "./display";
-import { chooseSession } from "./prompt";
+import { importSharedSession, formatImportSummary } from "./import";
+import { chooseImportTarget, chooseSession } from "./prompt";
 import { uploadSelection } from "./upload";
 import { discoverClaudeSessions } from "../shared/claude";
 import { discoverCodexSessions } from "../shared/codex";
@@ -97,6 +98,42 @@ async function main(): Promise<void> {
 
   if (!options.json) {
     intro("agent-thread");
+  }
+
+  if (options.importRef) {
+    const target = options.importTarget ?? (await chooseImportTarget());
+    if (!target) {
+      if (!options.json) {
+        cancel("No import target selected. Pass --to claude or --to codex.");
+      }
+      process.exit(1);
+    }
+
+    const importSpinner = spinner();
+    if (!options.json) {
+      importSpinner.start(`Fetching shared thread`);
+    }
+    const result = await importSharedSession({
+      serverUrl: options.serverUrl,
+      importRef: options.importRef,
+      target,
+      workspace: options.workspace,
+      claudeHome: options.claudeHome,
+      codexHome: options.codexHome,
+      dryRun: options.dryRun,
+      force: options.force,
+    });
+    if (!options.json) {
+      importSpinner.stop(options.dryRun ? "Import plan ready" : "Import complete");
+    }
+
+    if (options.json) {
+      console.log(JSON.stringify(result, null, 2));
+      return;
+    }
+
+    outro(formatImportSummary(result));
+    return;
   }
 
   const result =

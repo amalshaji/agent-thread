@@ -45,3 +45,21 @@ export function formatShortDate(value: string | null): string {
   if (Number.isNaN(date.getTime())) return "";
   return date.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
 }
+
+export function formatRelativeTime(value: string | null, origin: string | null | undefined): string {
+  if (!value || !origin) return "";
+  const date = new Date(value);
+  const start = new Date(origin);
+  if (Number.isNaN(date.getTime()) || Number.isNaN(start.getTime())) return "";
+
+  const totalSeconds = Math.max(0, Math.round((date.getTime() - start.getTime()) / 1000));
+  if (totalSeconds < 60) return `+${totalSeconds}s`;
+
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  if (minutes < 60) return seconds === 0 ? `+${minutes}m` : `+${minutes}m ${seconds}s`;
+
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+  return remainingMinutes === 0 ? `+${hours}h` : `+${hours}h ${remainingMinutes}m`;
+}

@@ -55,7 +55,7 @@ export function SourceCommandTabs() {
               aria-controls={`source-panel-${source.id}`}
               onClick={() => setActiveSource(source.id)}
               className={cn(
-                "inline-flex h-10 items-center justify-center gap-2 rounded-md px-3 text-sm font-medium text-muted-foreground transition-colors",
+                "inline-flex h-10 cursor-pointer items-center justify-center gap-2 rounded-md px-3 text-sm font-medium text-muted-foreground transition-colors",
                 "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                 active && "bg-background text-foreground shadow-sm",
               )}

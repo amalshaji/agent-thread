@@ -109,3 +109,11 @@ export interface UploadResponse {
   publicId: string;
   url: string;
 }
+
+export interface SessionExportBundle {
+  schemaVersion: 1;
+  publicId: string;
+  source: UploadSource;
+  normalized: NormalizedSession;
+  rawFiles: RawUploadFile[];
+}

@@ -1,4 +1,4 @@
-import type { NormalizedSession, UploadRequest } from "@/src/shared/contracts";
+import type { NormalizedSession, RawUploadFile, SessionExportBundle, UploadRequest } from "@/src/shared/contracts";
 
 export type UploadRow = {
   id: string;
@@ -145,6 +145,48 @@ export async function loadNormalizedSession(bucket: R2Bucket, key: string): Prom
   return object.json<NormalizedSession>();
 }
 
+function rawFileFromObject(key: string, rawPrefix: string, content: string, metadata?: Record<string, string>): RawUploadFile {
+  const relativeObjectPath = key.slice(rawPrefix.length + 1);
+  const fileName = relativeObjectPath.split("/").pop() ?? relativeObjectPath;
+
+  return {
+    threadId: metadata?.threadId ?? fileName.replace(/\.jsonl$/, ""),
+    kind: metadata?.kind === "sidechain" ? "sidechain" : "main",
+    fileName,
+    relativePath: metadata?.relativePath ?? relativeObjectPath,
+    content,
+  };
+}
+
+export async function loadRawFiles(bucket: R2Bucket, rawPrefix: string): Promise<RawUploadFile[]> {
+  const rawFiles: RawUploadFile[] = [];
+  let cursor: string | undefined;
+
+  do {
+    const page = await bucket.list({ prefix: `${rawPrefix}/`, cursor });
+
+    for (const listed of page.objects) {
+      const object = await bucket.get(listed.key);
+
+      if (!object) {
+        continue;
+      }
+
+      rawFiles.push(rawFileFromObject(listed.key, rawPrefix, await object.text(), object.customMetadata ?? listed.customMetadata));
+    }
+
+    cursor = page.truncated ? page.cursor : undefined;
+  } while (cursor);
+
+  return rawFiles.sort((left, right) => {
+    if (left.kind !== right.kind) {
+      return left.kind === "main" ? -1 : 1;
+    }
+
+    return left.relativePath.localeCompare(right.relativePath);
+  });
+}
+
 export async function loadSessionByPublicId(
   env: { DB: D1Database; SESSIONS_BUCKET: R2Bucket },
   publicId: string,
@@ -162,4 +204,23 @@ export async function loadSessionByPublicId(
   }
 
   return { upload, session };
+}
+
+export async function loadSessionExportByPublicId(
+  env: { DB: D1Database; SESSIONS_BUCKET: R2Bucket },
+  publicId: string,
+): Promise<SessionExportBundle | null> {
+  const result = await loadSessionByPublicId(env, publicId);
+
+  if (!result) {
+    return null;
+  }
+
+  return {
+    schemaVersion: 1,
+    publicId,
+    source: result.session.source,
+    normalized: result.session,
+    rawFiles: await loadRawFiles(env.SESSIONS_BUCKET, result.upload.raw_prefix),
+  };
 }

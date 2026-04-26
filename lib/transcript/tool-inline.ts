@@ -106,6 +106,21 @@ const TOOL_ICONS: Record<string, string | undefined> = {
 };
 
 const icon = (key: string): string => TOOL_ICONS[key] ?? TOOL_ICONS.dot ?? "";
+const COMMAND_PREVIEW_MAX_LENGTH = "find /Users/amalshaji/.codex/sqlite -maxdepth 2 -type f -print".length;
+
+function commandPreview(record: ToolInputRecord | null): string {
+  const raw =
+    typeof record?.cmd === "string"
+      ? record.cmd
+      : typeof record?.command === "string"
+        ? record.command
+        : "";
+  const firstLine = raw.trim().split("\n")[0] ?? "";
+  const normalized = firstLine.replace(/\s+/g, " ");
+  return normalized.length > COMMAND_PREVIEW_MAX_LENGTH
+    ? `${normalized.slice(0, COMMAND_PREVIEW_MAX_LENGTH - 3)}...`
+    : normalized;
+}
 
 export function getToolMeta(name: string, input: unknown): ToolMeta {
   const fileName = getToolFileName(input);
@@ -122,9 +137,10 @@ export function getToolMeta(name: string, input: unknown): ToolMeta {
     case "read":
       return { shortName: "Read", color: "blue", iconPaths: icon("file"), summary: fileName ?? "" };
     case "bash": {
-      const cmd = typeof record?.command === "string" ? (record.command.trim().split("\n")[0] ?? "") : "";
-      return { shortName: "Bash", color: "gray", iconPaths: icon("terminal"), summary: cmd.substring(0, 60) };
+      return { shortName: "Bash", color: "gray", iconPaths: icon("terminal"), summary: commandPreview(record) };
     }
+    case "exec_command":
+      return { shortName: "exec_command", color: "gray", iconPaths: icon("terminal"), summary: commandPreview(record) };
     case "agent":
       return { shortName: "Agent", color: "pink", iconPaths: icon("sparkle"), summary: "" };
     case "webfetch":

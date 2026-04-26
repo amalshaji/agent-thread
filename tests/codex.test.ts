@@ -105,6 +105,34 @@ describe("Codex discovery", () => {
             output: projectPath,
           },
         }),
+        JSON.stringify({
+          timestamp: "2026-04-25T19:08:35.100Z",
+          type: "event_msg",
+          payload: {
+            type: "token_count",
+            info: {
+              last_token_usage: {
+                input_tokens: 148552,
+                cached_input_tokens: 146816,
+                output_tokens: 478,
+                reasoning_output_tokens: 24,
+                total_tokens: 149030,
+              },
+              total_token_usage: {
+                input_tokens: 5002474,
+                cached_input_tokens: 4726784,
+                output_tokens: 43804,
+                reasoning_output_tokens: 13780,
+                total_tokens: 5046278,
+              },
+              model_context_window: 258400,
+            },
+            rate_limits: {
+              plan_type: "plus",
+              credits: { has_credits: false, balance: "0" },
+            },
+          },
+        }),
       ].join("\n"),
     );
 
@@ -129,13 +157,29 @@ describe("Codex discovery", () => {
     const events = upload.normalized.threads[0]!.events;
     expect(events.some((event) => event.textPreview?.includes("Hidden developer setup"))).toBe(false);
     expect(events.some((event) => event.textPreview?.includes("AGENTS.md"))).toBe(false);
-    expect(events.map((event) => event.displayKind)).toEqual(["message", "message", "tool_use", "tool_result"]);
+    expect(events.map((event) => event.displayKind)).toEqual(["message", "message", "tool_use", "tool_result", "meta"]);
     expect(events[2]?.blocks[0]).toMatchObject({
       kind: "tool_use",
       id: "call_123",
       name: "exec_command",
       input: { cmd: "pwd" },
     });
+    expect(events[4]?.meta).toMatchObject({
+      entrypoint: "codex",
+      subtype: "token_count",
+      usage: {
+        last: {
+          inputTokens: 148552,
+          cachedInputTokens: 146816,
+          outputTokens: 478,
+          reasoningOutputTokens: 24,
+          totalTokens: 149030,
+        },
+        modelContextWindow: 258400,
+      },
+    });
+    expect(JSON.stringify(events[4]?.meta.usage)).not.toContain("rate_limits");
+    expect(JSON.stringify(events[4]?.meta.usage)).not.toContain("credits");
 
     await rm(sandbox, { recursive: true, force: true });
   });

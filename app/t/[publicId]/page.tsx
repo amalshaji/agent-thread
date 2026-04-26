@@ -1,16 +1,19 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
 
 import { AppHeader } from "@/components/app-shell";
 import { CopyButton } from "@/components/copy-button";
+import { SessionNotFound } from "@/components/session-not-found";
 import { TranscriptClientEnhancements } from "@/components/transcript/client-enhancements";
+import { TranscriptControls } from "@/components/transcript/transcript-controls";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { getAgentThreadEnv } from "@/lib/cloudflare";
 import { loadSessionByPublicId } from "@/lib/storage";
 import type { NormalizedSession } from "@/src/shared/contracts";
 import { Thread } from "@/components/transcript/thread";
+import { ImportCard } from "@/components/transcript/import-card";
 import { resetDiffBudget } from "@/lib/transcript/diff";
 import { formatShortDate, formatShortTime } from "@/lib/transcript/utils";
+import { DEFAULT_SERVER_URL } from "@/src/cli/args";
 
 export const dynamic = "force-dynamic";
 
@@ -150,7 +153,7 @@ export default async function ThreadPage({ params }: ThreadPageProps) {
   const result = await loadThreadPageData(publicId);
 
   if (!result) {
-    notFound();
+    return <SessionNotFound />;
   }
 
   const { session } = result;
@@ -235,9 +238,15 @@ export default async function ThreadPage({ params }: ThreadPageProps) {
                 </span>
               ))}
             </div>
+            <TranscriptControls />
           </header>
 
           <div className="chat-stream">
+            <ImportCard
+              publicId={publicId}
+              serverUrl={DEFAULT_SERVER_URL}
+              defaultTarget={session.source === "codex" ? "codex" : "claude"}
+            />
             <div>
               {session.threads.map((thread) => (
                 <Thread
@@ -245,6 +254,7 @@ export default async function ThreadPage({ params }: ThreadPageProps) {
                   thread={thread}
                   showHeader={hasMultipleThreads || thread.kind !== "main"}
                   assistantLabel={assistantLabel}
+                  startedAt={session.root.startedAt}
                 />
               ))}
             </div>

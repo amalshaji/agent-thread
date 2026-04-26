@@ -62,6 +62,10 @@ export async function formatUploadFailure(response: Response, uploadUrl: URL): P
   return `Upload failed (${response.status}) at ${uploadUrl.toString()}.`;
 }
 
+export function buildPublicThreadUrl(serverUrl: string, publicId: string): string {
+  return `${serverUrl.replace(/\/+$/, "")}/t/${publicId}`;
+}
+
 export async function uploadSelection(
   serverUrl: string,
   selection: UploadSelection,
@@ -83,5 +87,9 @@ export async function uploadSelection(
     throw new Error(await formatUploadFailure(response, uploadUrl));
   }
 
-  return (await response.json()) as UploadResponse;
+  const result = (await response.json()) as UploadResponse;
+  return {
+    ...result,
+    url: buildPublicThreadUrl(serverUrl, result.publicId),
+  };
 }

@@ -14,6 +14,33 @@ function useCodeCollapse() {
     const collapseThreshold = 120;
     const collapsedHeight = 115;
 
+    function restoreTarget(target: HTMLElement) {
+      target.style.maxHeight = "";
+      target.style.overflow = "";
+      target.style.webkitMaskImage = "";
+      target.style.maskImage = "";
+
+      const wrapper = target.parentElement;
+      if (!wrapper?.classList.contains("code-collapser")) {
+        return;
+      }
+
+      wrapper.querySelector(":scope > [data-expand-btn]")?.remove();
+      delete wrapper.dataset.collapsed;
+      wrapper.parentElement?.insertBefore(target, wrapper);
+      if (wrapper.childNodes.length === 0) {
+        wrapper.remove();
+      }
+    }
+
+    function restoreToolContent() {
+      document.querySelectorAll<HTMLElement>("pre.tool-payload, .toolcall .diff-view, .tool-result-disclosure .diff-view").forEach(
+        restoreTarget,
+      );
+    }
+
+    restoreToolContent();
+
     function makeExpandButton(wrapper: HTMLElement, target: HTMLElement) {
       const button = document.createElement("button");
       button.className = "code-expand-btn";
@@ -62,7 +89,7 @@ function useCodeCollapse() {
       wrapper.appendChild(makeExpandButton(wrapper, target));
     }
 
-    document.querySelectorAll<HTMLElement>("pre.tool-payload, .code-block-wrapper > pre").forEach((pre) => {
+    document.querySelectorAll<HTMLElement>(".code-block-wrapper > pre").forEach((pre) => {
       if (pre.scrollHeight <= collapseThreshold) {
         return;
       }
@@ -85,7 +112,7 @@ function useCodeCollapse() {
       collapseTarget(pre, wrapper);
     });
 
-    document.querySelectorAll<HTMLElement>(".diff-view").forEach((diffView) => {
+    document.querySelectorAll<HTMLElement>(".block.markdown .diff-view").forEach((diffView) => {
       if (diffView.scrollHeight <= collapseThreshold) {
         return;
       }
@@ -101,6 +128,8 @@ function useCodeCollapse() {
       wrapper.appendChild(diffView);
       collapseTarget(diffView, wrapper);
     });
+
+    return restoreToolContent;
   }, []);
 }
 

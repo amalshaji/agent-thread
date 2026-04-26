@@ -8,6 +8,7 @@ Claude Code and Codex session uploader and share viewer built with Bun, Next.js,
 - Claude session discovery from `~/.claude/projects`
 - Codex thread discovery from `~/.codex/sessions`
 - Interactive selection of sessions for the current directory
+- Shared thread imports back into Claude Code or Codex
 - Upload endpoint as a Next route handler
 - Server-rendered share page backed by D1 metadata and R2 session storage
 
@@ -43,11 +44,21 @@ Upload Codex threads instead of the default Claude provider:
 AGENT_THREAD_SERVER_URL=http://127.0.0.1:3000 bun run cli --codex
 ```
 
+Import a shared thread into Claude Code or Codex:
+
+```bash
+AGENT_THREAD_SERVER_URL=http://127.0.0.1:3000 bun run cli --import 0c5a0y4a406r
+AGENT_THREAD_SERVER_URL=http://127.0.0.1:3000 bun run cli --import http://127.0.0.1:3000/t/0c5a0y4a406r --to codex
+```
+
+If `--workspace` is omitted, imports are attached to the current directory. Use `--dry-run` to inspect target paths without writing files and `--force` to overwrite an existing local import.
+
 Without `AGENT_THREAD_SERVER_URL`, the CLI defaults to the deployed Worker:
 
 ```bash
 bunx agent-thread
 npx agent-thread --codex
+npx agent-thread --import 0c5a0y4a406r --to codex
 ```
 
 Current default: `https://agent-thread.com`

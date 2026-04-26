@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import { Toaster } from "sonner";
 
+import { ThemeToaster } from "@/components/theme-toaster";
 import "./globals.css";
 import "./transcript.css";
 
@@ -32,7 +32,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       </head>
       <body>
         {children}
-        <Toaster position="bottom-right" richColors closeButton />
+        <ThemeToaster />
       </body>
     </html>
   );

@@ -21,7 +21,7 @@ export function CopyButton({ value, label = "Copy", copiedLabel = "Copied", clas
   const copy = async () => {
     await navigator.clipboard?.writeText(value ?? location.href);
     setCopied(true);
-    toast.success(copiedLabel);
+    toast(copiedLabel);
     window.setTimeout(() => setCopied(false), 1500);
   };
 
