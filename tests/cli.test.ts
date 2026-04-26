@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import { DEFAULT_SERVER_URL, parseArgs, resolveServerUrl } from "../src/cli/args";
+import { resolveLocalConversionTarget } from "../src/cli/local";
 import { buildPublicThreadUrl, formatUploadFailure } from "../src/cli/upload";
 import { isUploadRequest } from "../lib/validation";
 
@@ -45,6 +46,36 @@ describe("CLI provider args", () => {
 
   test("defaults import workspace to the current process cwd", () => {
     expect(parseArgs(["--import", "abc123"]).workspace).toBe(process.cwd());
+  });
+
+  test("parses local conversion flags", () => {
+    const options = parseArgs(["--codex", "--local", "--to", "claude", "--latest", "--dry-run"]);
+
+    expect(options.provider).toBe("codex");
+    expect(options.local).toBe(true);
+    expect(options.importTarget).toBe("claude");
+    expect(options.latest).toBe(true);
+    expect(options.dryRun).toBe(true);
+  });
+
+  test("rejects combining local conversion with shared import", () => {
+    expect(() => parseArgs(["--local", "--import", "abc123"])).toThrow("--local cannot be combined with --import.");
+  });
+});
+
+describe("local conversion target resolution", () => {
+  test("defaults to the opposite app", () => {
+    expect(resolveLocalConversionTarget("claude")).toBe("codex");
+    expect(resolveLocalConversionTarget("codex")).toBe("claude");
+  });
+
+  test("rejects same-source local targets", () => {
+    expect(() => resolveLocalConversionTarget("claude", "claude")).toThrow(
+      "Local conversion from Claude Code can only target Codex.",
+    );
+    expect(() => resolveLocalConversionTarget("codex", "codex")).toThrow(
+      "Local conversion from Codex can only target Claude Code.",
+    );
   });
 });
 

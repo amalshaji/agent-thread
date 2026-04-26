@@ -1,6 +1,7 @@
 export interface CliOptions {
   cwd: string;
   provider: "claude" | "codex";
+  local: boolean;
   importRef?: string;
   importTarget?: "claude" | "codex";
   workspace: string;
@@ -26,15 +27,16 @@ export function usage(): string {
     "Options:",
     "  --codex               Inspect Codex threads instead of Claude sessions",
     "  --claude              Inspect Claude sessions (default)",
+    "  --local               Convert a local chat into the opposite app without uploading",
     "  --import <url|id>     Import a shared thread into Claude Code or Codex",
-    "  --to <target>         Import target: claude or codex",
+    "  --to <target>         Import/conversion target: claude or codex",
     "  --workspace <path>    Workspace path to attach imported history to",
     "  --cwd <path>          Inspect sessions for a different directory",
     "  --claude-home <path>  Override the Claude home directory",
     "  --codex-home <path>   Override the Codex home directory",
     "  --server <url>        Server base URL",
-    "  --latest              Upload the latest session without prompting",
-    "  --dry-run             Show import target paths without writing files",
+    "  --latest              Upload or convert the latest session without prompting",
+    "  --dry-run             Show import/conversion target paths without writing files",
     "  --force               Overwrite existing local import files",
     "  --json                Print the result as JSON",
     "  --help                Show this help message",
@@ -67,6 +69,7 @@ export function parseArgs(argv: string[]): CliOptions {
   const options: CliOptions = {
     cwd: process.cwd(),
     provider: "claude",
+    local: false,
     workspace: process.cwd(),
     serverUrl: resolveServerUrl(),
     latest: false,
@@ -88,6 +91,9 @@ export function parseArgs(argv: string[]): CliOptions {
         break;
       case "--claude":
         options.provider = "claude";
+        break;
+      case "--local":
+        options.local = true;
         break;
       case "--import":
         options.importRef = flagValue(argv, index, "--import");
@@ -139,6 +145,10 @@ export function parseArgs(argv: string[]): CliOptions {
         }
         break;
     }
+  }
+
+  if (options.local && options.importRef) {
+    throw new Error("--local cannot be combined with --import.");
   }
 
   return options;

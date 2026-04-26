@@ -1,71 +1,112 @@
 # agent-thread
 
-Claude Code and Codex session uploader and share viewer built with Bun, Next.js, shadcn/ui, OpenNext, and Cloudflare Workers.
+Share, inspect, import, and locally convert Claude Code and Codex chat sessions.
 
-## What works now
+agent-thread is a TypeScript CLI and Next.js share viewer for publishing local agent chats as public links. It uses Bun for development, tests, and builds, while the published CLI is Node-compatible. It can also import shared threads back into Claude Code or Codex, and convert local Claude/Codex histories without uploading them.
 
-- `bunx agent-thread` style CLI entrypoint via the `agent-thread` binary
-- Claude session discovery from `~/.claude/projects`
+## Features
+
+- Claude Code session discovery from `~/.claude/projects`
 - Codex thread discovery from `~/.codex/sessions`
-- Interactive selection of sessions for the current directory
+- Interactive session picker scoped to the current project
+- Public share pages backed by Cloudflare D1 and R2
 - Shared thread imports back into Claude Code or Codex
-- Upload endpoint as a Next route handler
-- Server-rendered share page backed by D1 metadata and R2 session storage
+- Local Claude Code <-> Codex chat conversion without uploading
+- `bunx agent-thread` CLI entrypoint through the `agent-thread` binary
 
-## Install
+## CLI Usage
+
+Upload the latest Claude Code session to the default hosted service:
 
 ```bash
-bun install
+bunx agent-thread --latest
 ```
 
-## Run the CLI locally
-
-Start the Next app first:
+Upload Codex threads instead:
 
 ```bash
-bun run dev
+bunx agent-thread --codex
 ```
 
-Then run the CLI against that local app:
+Point the CLI at a local Cloudflare preview or self-hosted server:
 
 ```bash
-AGENT_THREAD_SERVER_URL=http://127.0.0.1:3000 bun run cli
-```
-
-Or upload the latest session without a prompt:
-
-```bash
-AGENT_THREAD_SERVER_URL=http://127.0.0.1:3000 bun run cli --latest
-```
-
-Upload Codex threads instead of the default Claude provider:
-
-```bash
-AGENT_THREAD_SERVER_URL=http://127.0.0.1:3000 bun run cli --codex
+AGENT_THREAD_SERVER_URL=http://127.0.0.1:<preview-port> bunx agent-thread
+AGENT_THREAD_SERVER_URL=https://your-domain.example bunx agent-thread --codex
 ```
 
 Import a shared thread into Claude Code or Codex:
 
 ```bash
-AGENT_THREAD_SERVER_URL=http://127.0.0.1:3000 bun run cli --import 0c5a0y4a406r
-AGENT_THREAD_SERVER_URL=http://127.0.0.1:3000 bun run cli --import http://127.0.0.1:3000/t/0c5a0y4a406r --to codex
+bunx agent-thread --import 0c5a0y4a406r
+bunx agent-thread --import https://agent-thread.com/t/0c5a0y4a406r --to codex
 ```
 
 If `--workspace` is omitted, imports are attached to the current directory. Use `--dry-run` to inspect target paths without writing files and `--force` to overwrite an existing local import.
 
-Without `AGENT_THREAD_SERVER_URL`, the CLI defaults to the deployed Worker:
+Convert a local chat into the opposite app without uploading:
 
 ```bash
-bunx agent-thread
-npx agent-thread --codex
-npx agent-thread --import 0c5a0y4a406r --to codex
+bunx agent-thread --local
+bunx agent-thread --codex --local
+bunx agent-thread --local --latest --dry-run
+bunx agent-thread --codex --local --workspace /path/to/project
 ```
 
-Current default: `https://agent-thread.com`
+Local conversion always targets the opposite app. `--to` is optional and must match that opposite target when provided.
+It does not require a web server or Cloudflare resources.
 
-## Cloudflare setup
+## Requirements
 
-Create an R2 bucket and a D1 database, then update `wrangler.toml` with the real binding values.
+- Bun
+- A local Claude Code or Codex history if you want to upload or convert chats
+- Cloudflare account, D1 database, and R2 bucket if you want to self-host the web app
+
+## Local Setup
+
+Install dependencies:
+
+```bash
+bun install
+```
+
+Run type checks and tests:
+
+```bash
+bun run check
+bun test
+```
+
+Start the Next.js dev server:
+
+```bash
+bun run dev
+```
+
+The dev server is useful for UI work. Upload, export, and share APIs require Cloudflare bindings for D1 and R2, so use `bun run preview` or a deployed Worker when you need the full hosted flow.
+
+## Self-Hosting
+
+agent-thread deploys to Cloudflare Workers through OpenNext. The hosted app needs:
+
+- D1 binding named `DB`
+- R2 binding named `SESSIONS_BUCKET`
+- `PUBLIC_BASE_URL` set to your public app URL
+- `AGENT_THREAD_SERVER_URL` set to the same URL for CLI defaults in the deployed app
+
+Create Cloudflare resources:
+
+```bash
+bunx wrangler d1 create agent-thread
+bunx wrangler r2 bucket create agent-thread-sessions
+```
+
+Update `wrangler.toml` with your own values:
+
+- `database_id` from the D1 create output
+- `bucket_name` for your R2 bucket
+- `routes` for your domain, or remove the `[[routes]]` block if you deploy to a workers.dev subdomain
+- `PUBLIC_BASE_URL` and `AGENT_THREAD_SERVER_URL`
 
 Apply the D1 migration:
 
@@ -73,17 +114,38 @@ Apply the D1 migration:
 bunx wrangler d1 migrations apply agent-thread
 ```
 
-## Test
-
-```bash
-bun test
-```
-
-## Deploy
-
-Next.js is deployed to Cloudflare Workers through OpenNext:
+Build and test the Worker locally with Cloudflare bindings:
 
 ```bash
 bun run preview
+```
+
+Deploy:
+
+```bash
 bun run deploy
 ```
+
+After deployment, point the CLI at your instance:
+
+```bash
+AGENT_THREAD_SERVER_URL=https://your-domain.example bunx agent-thread --latest
+```
+
+## Project Scripts
+
+```bash
+bun run cli        # run the TypeScript CLI locally
+bun run dev        # run Next.js dev server
+bun run preview    # build and preview the Cloudflare Worker
+bun run deploy     # build and deploy to Cloudflare
+bun run build      # production build plus CLI bundle
+bun run check      # TypeScript check
+bun test           # test suite
+```
+
+## Data Model
+
+Uploads store metadata in D1 and session JSONL payloads in R2. The first migration creates the `uploads` table and indexes public IDs and source session IDs.
+
+The app stores raw source files alongside a normalized transcript representation so shared threads can be rendered in the browser and imported back into either supported local app.

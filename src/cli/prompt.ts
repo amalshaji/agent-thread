@@ -43,6 +43,7 @@ function buildSessionPrompt<T extends DisplaySession>(
   sessions: T[],
   pageIndex: number,
   providerLabel: string,
+  action: string,
 ): {
   message: string;
   options: SessionPromptOption[];
@@ -82,8 +83,8 @@ function buildSessionPrompt<T extends DisplaySession>(
   return {
     message:
       pageCount === 1
-        ? `Select a ${providerLabel} session to upload`
-        : `Select a ${providerLabel} session to upload (Page ${nextPageIndex + 1} of ${pageCount}, ${startIndex + 1}-${endIndex} of ${sessions.length})`,
+        ? `Select a ${providerLabel} session to ${action}`
+        : `Select a ${providerLabel} session to ${action} (Page ${nextPageIndex + 1} of ${pageCount}, ${startIndex + 1}-${endIndex} of ${sessions.length})`,
     options,
     nextPageIndex,
   };
@@ -94,6 +95,7 @@ export async function chooseSession<T extends DisplaySession>(
   latest: boolean,
   deps: SessionPromptDeps = DEFAULT_PROMPT_DEPS,
   providerLabel = "Claude",
+  action = "upload",
 ): Promise<T | null> {
   if (sessions.length === 0) {
     return null;
@@ -108,7 +110,7 @@ export async function chooseSession<T extends DisplaySession>(
   let pageIndex = 0;
 
   while (true) {
-    const prompt = buildSessionPrompt(sessions, pageIndex, providerLabel);
+    const prompt = buildSessionPrompt(sessions, pageIndex, providerLabel, action);
     const value = await deps.prompt({
       message: prompt.message,
       options: prompt.options,
