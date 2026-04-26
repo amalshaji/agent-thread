@@ -1,111 +1,55 @@
----
-description: Use Bun instead of Node.js, npm, pnpm, or vite.
-globs: "*.ts, *.tsx, *.html, *.css, *.js, *.jsx, package.json"
-alwaysApply: false
----
+# Agent Instructions
 
-Default to using Bun instead of Node.js.
+This repository is a Bun-managed Next.js/OpenNext app. Use Bun for project
+commands and dependency management, and keep changes aligned with the existing
+Next.js App Router and Cloudflare Worker deployment path.
 
-- Use `bun <file>` instead of `node <file>` or `ts-node <file>`
-- Use `bun test` instead of `jest` or `vitest`
-- Use `bun build <file.html|file.ts|file.css>` instead of `webpack` or `esbuild`
-- Use `bun install` instead of `npm install` or `yarn install` or `pnpm install`
-- Use `bun run <script>` instead of `npm run <script>` or `yarn run <script>` or `pnpm run <script>`
-- Use `bunx <package> <command>` instead of `npx <package> <command>`
-- Bun automatically loads .env, so don't use dotenv.
+## Tooling
 
-## APIs
+- Use `bun install` instead of `npm install`, `yarn install`, or `pnpm install`.
+- Use `bun run <script>` instead of `npm run <script>`, `yarn run <script>`, or `pnpm run <script>`.
+- Use `bun test` for tests.
+- Use `bunx <package> <command>` instead of `npx <package> <command>`.
+- Do not introduce Vite, Express, Jest, Vitest, npm, yarn, or pnpm.
+- When a dependency exposes a Node-oriented CLI, invoke it through Bun, matching the existing scripts. For example: `bun --bun ./node_modules/next/dist/bin/next build`.
+- Codex or editor host tooling may use its own configured Node runtime when that tool requires it, such as `js_repl` or browser automation. That exception does not justify adding Node setup, npm scripts, or a project-level Node workflow.
 
-- `Bun.serve()` supports WebSockets, HTTPS, and routes. Don't use `express`.
-- `bun:sqlite` for SQLite. Don't use `better-sqlite3`.
-- `Bun.redis` for Redis. Don't use `ioredis`.
-- `Bun.sql` for Postgres. Don't use `pg` or `postgres.js`.
-- `WebSocket` is built-in. Don't use `ws`.
-- Prefer `Bun.file` over `node:fs`'s readFile/writeFile
-- Bun.$`ls` instead of execa.
+## Project Commands
+
+- Install dependencies: `bun install`
+- Run the Next.js dev server: `bun run dev`
+- Build the app and CLI: `bun run build`
+- Build only the CLI: `bun run build:cli`
+- Preview the Cloudflare Worker: `bun run preview`
+- Deploy through OpenNext/Cloudflare: `bun run deploy`
+- Type-check: `bun run check`
+- Run tests: `bun test`
+- Run the local CLI entrypoint: `bun run cli`
+
+## Release Workflow
+
+- When updating the CLI version, title the pull request `Release cli {version}`, replacing `{version}` with the exact version being released.
+
+## Architecture
+
+- The frontend and API routes live in Next.js App Router.
+- The Cloudflare Worker is produced by `@opennextjs/cloudflare`; `wrangler.toml` points at `.open-next/worker.js`.
+- Keep `next.config.ts` compatible with the OpenNext build path, including `output: "standalone"`, unless the deployment strategy is intentionally changed.
+- Keep server-side rendering and public transcript rendering in the Next app rather than reintroducing a separate Bun.serve frontend.
+- Keep Cloudflare bindings and runtime-specific code isolated behind the existing helper modules.
+
+## Code Style
+
+- Prefer existing local patterns over introducing new abstractions.
+- Use Bun APIs in Bun-only scripts when they fit, such as `Bun.file`, `Bun.write`, `Bun.$`, and `bun:sqlite`.
+- Node built-in imports such as `node:path` and `node:fs/promises` are acceptable where the existing runtime target needs them, including Next.js, OpenNext, Cloudflare compatibility, and the published CLI bundle.
+- The CLI bundle intentionally targets Node compatibility and may keep `#!/usr/bin/env node`.
+- Bun loads `.env` automatically; do not add `dotenv`.
 
 ## Testing
 
-Use `bun test` to run tests.
+Use the narrowest meaningful verification for the change:
 
-```ts#index.test.ts
-import { test, expect } from "bun:test";
-
-test("hello world", () => {
-  expect(1).toBe(1);
-});
-```
-
-## Frontend
-
-Use HTML imports with `Bun.serve()`. Don't use `vite`. HTML imports fully support React, CSS, Tailwind.
-
-Server:
-
-```ts#index.ts
-import index from "./index.html"
-
-Bun.serve({
-  routes: {
-    "/": index,
-    "/api/users/:id": {
-      GET: (req) => {
-        return new Response(JSON.stringify({ id: req.params.id }));
-      },
-    },
-  },
-  // optional websocket support
-  websocket: {
-    open: (ws) => {
-      ws.send("Hello, world!");
-    },
-    message: (ws, message) => {
-      ws.send(message);
-    },
-    close: (ws) => {
-      // handle close
-    }
-  },
-  development: {
-    hmr: true,
-    console: true,
-  }
-})
-```
-
-HTML files can import .tsx, .jsx or .js files directly and Bun's bundler will transpile & bundle automatically. `<link>` tags can point to stylesheets and Bun's CSS bundler will bundle.
-
-```html#index.html
-<html>
-  <body>
-    <h1>Hello, world!</h1>
-    <script type="module" src="./frontend.tsx"></script>
-  </body>
-</html>
-```
-
-With the following `frontend.tsx`:
-
-```tsx#frontend.tsx
-import React from "react";
-import { createRoot } from "react-dom/client";
-
-// import .css files directly and it works
-import './index.css';
-
-const root = createRoot(document.body);
-
-export default function Frontend() {
-  return <h1>Hello, world!</h1>;
-}
-
-root.render(<Frontend />);
-```
-
-Then, run index.ts
-
-```sh
-bun --hot ./index.ts
-```
-
-For more information, read the Bun API docs in `node_modules/bun-types/docs/**.mdx`.
+- `bun test` for behavior covered by tests.
+- `bun run check` for TypeScript and route typing.
+- `bun run build` when touching Next/OpenNext build behavior, deployment config, or the CLI bundle.
