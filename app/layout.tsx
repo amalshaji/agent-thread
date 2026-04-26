@@ -6,7 +6,7 @@ import "./transcript.css";
 
 export const metadata: Metadata = {
   title: "agent thread",
-  description: "Share Claude Code sessions as public links.",
+  description: "Share Claude Code and Codex sessions as public links.",
 };
 
 const themeBootScript = `

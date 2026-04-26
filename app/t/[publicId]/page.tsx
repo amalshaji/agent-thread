@@ -26,8 +26,35 @@ type OutlineItem = {
   displayRole: string;
 };
 
+type SourceInfo = {
+  label: string;
+  assistantLabel: string;
+  logoSrc: string;
+};
+
+function getSourceInfo(session: NormalizedSession): SourceInfo {
+  if (session.source === "codex") {
+    return {
+      label: "Codex",
+      assistantLabel: "Codex",
+      logoSrc: "/codex-color.svg",
+    };
+  }
+
+  return {
+    label: "Claude Code",
+    assistantLabel: "Claude",
+    logoSrc: "/claudecode-color.svg",
+  };
+}
+
+function getAssistantLabel(session: NormalizedSession): string {
+  return getSourceInfo(session).assistantLabel;
+}
+
 function buildOutlineItems(session: NormalizedSession): OutlineItem[] {
   const mainThread = session.threads.find((thread) => thread.kind === "main") ?? session.threads[0];
+  const assistantLabel = getAssistantLabel(session);
 
   if (!mainThread) {
     return [];
@@ -62,7 +89,7 @@ function buildOutlineItems(session: NormalizedSession): OutlineItem[] {
       index: String(items.length + 1).padStart(2, "0"),
       label,
       role,
-      displayRole: role === "user" ? "You" : "Claude",
+      displayRole: role === "user" ? "You" : assistantLabel,
     });
   }
 
@@ -106,12 +133,13 @@ export async function generateMetadata({ params }: ThreadPageProps): Promise<Met
   }
 
   const title = result.session.root.title ?? result.session.root.sessionId;
+  const sourceInfo = getSourceInfo(result.session);
   return {
     title: `${title} • agent thread`,
-    description: "A shared Claude Code session transcript.",
+    description: `A shared ${sourceInfo.label} session transcript.`,
     openGraph: {
       title,
-      description: "A shared Claude Code session transcript.",
+      description: `A shared ${sourceInfo.label} session transcript.`,
       type: "article",
     },
   };
@@ -133,6 +161,8 @@ export default async function ThreadPage({ params }: ThreadPageProps) {
   const outlineItems = buildOutlineItems(session);
   const metaItems = buildMetaItems(session);
   const cwd = session.root.cwd ?? session.root.projectPath ?? "";
+  const sourceInfo = getSourceInfo(session);
+  const assistantLabel = sourceInfo.assistantLabel;
 
   return (
     <>
@@ -160,6 +190,13 @@ export default async function ThreadPage({ params }: ThreadPageProps) {
             </nav>
           </ScrollArea>
           <div className="chat-side-footer">
+            <div className="mini-card source-mini-card">
+              <div className="mini-card-label">Source</div>
+              <div className="mini-card-value source-mini-value">
+                <img className="source-logo" src={sourceInfo.logoSrc} alt="" aria-hidden="true" />
+                <span>{sourceInfo.label}</span>
+              </div>
+            </div>
             {cwd ? (
               <div className="mini-card">
                 <div className="mini-card-label">Working dir</div>
@@ -182,6 +219,10 @@ export default async function ThreadPage({ params }: ThreadPageProps) {
                 <span className="crumb crumb-active">{publicId}</span>
               </div>
               <div className="chat-header-actions">
+                <span className="source-badge" aria-label={`Source: ${sourceInfo.label}`}>
+                  <img className="source-logo" src={sourceInfo.logoSrc} alt="" aria-hidden="true" />
+                  <span>{sourceInfo.label}</span>
+                </span>
                 <CopyButton label="Copy link" copiedLabel="Link copied" />
               </div>
             </div>
@@ -203,6 +244,7 @@ export default async function ThreadPage({ params }: ThreadPageProps) {
                   key={thread.id}
                   thread={thread}
                   showHeader={hasMultipleThreads || thread.kind !== "main"}
+                  assistantLabel={assistantLabel}
                 />
               ))}
             </div>

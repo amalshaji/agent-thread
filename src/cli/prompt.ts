@@ -1,12 +1,11 @@
 import { isCancel, select } from "@clack/prompts";
 
-import type { DiscoveredClaudeSession } from "../shared/claude";
-import { formatSessionHint, formatSessionLabel } from "./display";
+import { formatSessionHint, formatSessionLabel, type DisplaySession } from "./display";
 
 const SESSION_PAGE_SIZE = 10;
 
 type SessionPromptValue =
-  | { kind: "session"; session: DiscoveredClaudeSession }
+  | { kind: "session"; session: DisplaySession }
   | { kind: "previous-page" }
   | { kind: "next-page" };
 
@@ -39,9 +38,10 @@ function clampPageIndex(pageIndex: number, pageCount: number): number {
   return Math.min(Math.max(pageIndex, 0), Math.max(pageCount - 1, 0));
 }
 
-function buildSessionPrompt(
-  sessions: DiscoveredClaudeSession[],
+function buildSessionPrompt<T extends DisplaySession>(
+  sessions: T[],
   pageIndex: number,
+  providerLabel: string,
 ): {
   message: string;
   options: SessionPromptOption[];
@@ -81,18 +81,19 @@ function buildSessionPrompt(
   return {
     message:
       pageCount === 1
-        ? "Select a Claude session to upload"
-        : `Select a Claude session to upload (Page ${nextPageIndex + 1} of ${pageCount}, ${startIndex + 1}-${endIndex} of ${sessions.length})`,
+        ? `Select a ${providerLabel} session to upload`
+        : `Select a ${providerLabel} session to upload (Page ${nextPageIndex + 1} of ${pageCount}, ${startIndex + 1}-${endIndex} of ${sessions.length})`,
     options,
     nextPageIndex,
   };
 }
 
-export async function chooseSession(
-  sessions: DiscoveredClaudeSession[],
+export async function chooseSession<T extends DisplaySession>(
+  sessions: T[],
   latest: boolean,
   deps: SessionPromptDeps = DEFAULT_PROMPT_DEPS,
-): Promise<DiscoveredClaudeSession | null> {
+  providerLabel = "Claude",
+): Promise<T | null> {
   if (sessions.length === 0) {
     return null;
   }
@@ -106,7 +107,7 @@ export async function chooseSession(
   let pageIndex = 0;
 
   while (true) {
-    const prompt = buildSessionPrompt(sessions, pageIndex);
+    const prompt = buildSessionPrompt(sessions, pageIndex, providerLabel);
     const value = await deps.prompt({
       message: prompt.message,
       options: prompt.options,
@@ -123,7 +124,7 @@ export async function chooseSession(
 
     switch (value.kind) {
       case "session":
-        return value.session;
+        return value.session as T;
       case "previous-page":
         pageIndex = prompt.nextPageIndex - 1;
         break;

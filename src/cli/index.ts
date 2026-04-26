@@ -2,21 +2,20 @@
 
 import { cancel, intro, outro, spinner } from "@clack/prompts";
 
-import { parseArgs } from "./args";
+import { parseArgs, type CliOptions } from "./args";
 import { formatSessionLabel } from "./display";
 import { chooseSession } from "./prompt";
 import { uploadSelection } from "./upload";
 import { discoverClaudeSessions } from "../shared/claude";
+import { discoverCodexSessions } from "../shared/codex";
 
-async function main(): Promise<void> {
-  const options = parseArgs(process.argv.slice(2));
+function providerLabel(provider: "claude" | "codex"): string {
+  return provider === "codex" ? "Codex" : "Claude";
+}
 
-  if (!options.json) {
-    intro("agent-thread");
-  }
-
+async function runClaudeUpload(options: CliOptions, label: string) {
   const scanSpinner = spinner();
-  scanSpinner.start("Scanning local Claude sessions");
+  scanSpinner.start(`Scanning local ${label} sessions`);
   const sessions = await discoverClaudeSessions({
     cwd: options.cwd,
     claudeHome: options.claudeHome,
@@ -25,14 +24,14 @@ async function main(): Promise<void> {
 
   if (sessions.length === 0) {
     if (!options.json) {
-      cancel("No Claude sessions found for this directory.");
+      cancel(`No ${label} sessions found for this directory.`);
     } else {
-      console.log(JSON.stringify({ error: "No Claude sessions found." }));
+      console.log(JSON.stringify({ error: `No ${label} sessions found.` }));
     }
     process.exit(1);
   }
 
-  const selected = await chooseSession(sessions, options.latest);
+  const selected = await chooseSession(sessions, options.latest, undefined, label);
 
   if (!selected) {
     if (!options.json) {
@@ -43,8 +42,67 @@ async function main(): Promise<void> {
 
   const uploadSpinner = spinner();
   uploadSpinner.start(`Uploading ${formatSessionLabel(selected)}`);
-  const result = await uploadSelection(options.serverUrl, selected, options.claudeHome);
+  const result = await uploadSelection(options.serverUrl, {
+    provider: "claude",
+    session: selected,
+    claudeHome: options.claudeHome,
+  });
   uploadSpinner.stop(`Uploaded ${formatSessionLabel(selected)}`);
+
+  return result;
+}
+
+async function runCodexUpload(options: CliOptions, label: string) {
+  const scanSpinner = spinner();
+  scanSpinner.start(`Scanning local ${label} sessions`);
+  const sessions = await discoverCodexSessions({
+    cwd: options.cwd,
+    codexHome: options.codexHome,
+  });
+  scanSpinner.stop(`Found ${sessions.length} matching session${sessions.length === 1 ? "" : "s"}`);
+
+  if (sessions.length === 0) {
+    if (!options.json) {
+      cancel(`No ${label} sessions found for this directory.`);
+    } else {
+      console.log(JSON.stringify({ error: `No ${label} sessions found.` }));
+    }
+    process.exit(1);
+  }
+
+  const selected = await chooseSession(sessions, options.latest, undefined, label);
+
+  if (!selected) {
+    if (!options.json) {
+      cancel("No session selected.");
+    }
+    process.exit(1);
+  }
+
+  const uploadSpinner = spinner();
+  uploadSpinner.start(`Uploading ${formatSessionLabel(selected)}`);
+  const result = await uploadSelection(options.serverUrl, {
+    provider: "codex",
+    session: selected,
+    codexHome: options.codexHome,
+  });
+  uploadSpinner.stop(`Uploaded ${formatSessionLabel(selected)}`);
+
+  return result;
+}
+
+async function main(): Promise<void> {
+  const options = parseArgs(process.argv.slice(2));
+  const label = providerLabel(options.provider);
+
+  if (!options.json) {
+    intro("agent-thread");
+  }
+
+  const result =
+    options.provider === "codex"
+      ? await runCodexUpload(options, label)
+      : await runClaudeUpload(options, label);
 
   if (options.json) {
     console.log(JSON.stringify(result, null, 2));

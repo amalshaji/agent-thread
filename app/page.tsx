@@ -15,9 +15,9 @@ export default function HomePage() {
             <Sparkles className="size-5" aria-hidden="true" />
           </div>
           <div className="grid gap-3">
-            <h1 className="m-0 text-[24px] font-semibold leading-tight text-foreground">Share Claude sessions</h1>
+            <h1 className="m-0 text-[24px] font-semibold leading-tight text-foreground">Share agent sessions</h1>
             <p className="m-0 text-sm leading-6 text-muted-foreground">
-              Upload any Claude Code session as a public link in one command.
+              Upload Claude Code sessions or Codex threads as public links in one command.
             </p>
           </div>
           <div className="grid gap-2">

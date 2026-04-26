@@ -1,4 +1,4 @@
-export type UploadSource = "claude-code";
+export type UploadSource = "claude-code" | "codex";
 
 export type ContentBlock =
   | { kind: "text"; text: string }

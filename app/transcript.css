@@ -131,6 +131,19 @@
     font-size: 11px;
   }
 
+  .source-mini-card {
+    background: var(--surface);
+  }
+
+  .source-mini-value {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    word-break: normal;
+    font-weight: 600;
+    color: var(--ink);
+  }
+
   /* ————————————————————————————
      Main content area
   ———————————————————————————— */
@@ -165,7 +178,33 @@
   .crumb-sep { color: var(--faint); }
   .crumb-active { color: var(--ink); }
 
-  .chat-header-actions { display: flex; gap: 8px; }
+  .chat-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .source-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    height: 32px;
+    padding: 0 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--bg-soft);
+    color: var(--ink-soft);
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  .source-logo {
+    width: 18px;
+    height: 18px;
+    flex: 0 0 auto;
+    display: block;
+  }
 
   .chat-title {
     font-size: 26px;
@@ -256,6 +295,12 @@
 
     .chat-title {
       font-size: 20px;
+    }
+
+    .chat-header-top {
+      align-items: flex-start;
+      gap: 12px;
+      flex-direction: column;
     }
   }
 
@@ -478,8 +523,8 @@
     background: transparent;
     color: var(--muted);
     font-family: var(--font-mono);
-    font-size: 11px;
-    line-height: 1.4;
+    font-size: 10px;
+    line-height: 1.35;
     white-space: nowrap;
   }
 
@@ -715,7 +760,7 @@
     min-width: 0;
   }
 
-  details.block:not(.tool-call-disclosure):not(.tool-result-disclosure) summary {
+  details.block:not(.tool-call-disclosure):not(.tool-result-disclosure):not(.parallel-tool-batch) summary {
     cursor: pointer;
     color: var(--accent);
     margin-bottom: 8px;
@@ -723,8 +768,63 @@
     overflow-wrap: anywhere;
   }
 
-  .bubble-user details.block:not(.tool-call-disclosure):not(.tool-result-disclosure) summary {
+  .bubble-user details.block:not(.tool-call-disclosure):not(.tool-result-disclosure):not(.parallel-tool-batch) summary {
     color: var(--user-ink);
+  }
+
+  .parallel-tool-batch {
+    display: block;
+    max-width: 100%;
+    width: min(48rem, 100%);
+    white-space: normal;
+  }
+
+  .parallel-tool-batch > summary {
+    list-style: none;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 10px;
+    color: var(--ink);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 1.4;
+  }
+
+  .parallel-tool-batch > summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .parallel-tool-batch > summary::marker {
+    content: "";
+  }
+
+  .parallel-tool-title {
+    font-weight: 650;
+  }
+
+  .parallel-tool-count {
+    color: var(--muted);
+    font-size: 11px;
+  }
+
+  .parallel-tool-list {
+    display: grid;
+    gap: 12px;
+    padding-left: 12px;
+    border-left: 2px solid var(--line);
+  }
+
+  .parallel-tool-pair {
+    display: grid;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .parallel-tool-result {
+    margin-left: 16px;
+    min-width: 0;
   }
 
   pre {
@@ -772,6 +872,25 @@
   .tool-result-panel .tool-payload,
   .tool-result-panel .diff-view {
     background: var(--surface-1);
+  }
+
+  .tool-result-panel .block.text,
+  .tool-result-panel .block.markdown {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    line-height: 1.55;
+  }
+
+  .tool-result-panel .block.markdown p,
+  .tool-result-panel .block.markdown ul,
+  .tool-result-panel .block.markdown ol,
+  .tool-result-panel .block.markdown pre {
+    margin-bottom: 0.45em;
+  }
+
+  .tool-result-panel .tool-payload {
+    font-size: 11px;
+    line-height: 1.5;
   }
 
   .bubble-user .tool-payload {
@@ -1288,8 +1407,8 @@
     gap: 5px;
     color: var(--muted);
     font-family: var(--font-mono);
-    font-size: 11px;
-    line-height: 1.4;
+    font-size: 10px;
+    line-height: 1.35;
     white-space: nowrap;
   }
 
@@ -1571,6 +1690,24 @@
     overflow: hidden;
   }
 
+  /* Keep expanded tool output compact even inside assistant message typography. */
+  .tool-result-disclosure .tool-result-panel {
+    padding: 8px 10px;
+  }
+
+  .msg-assistant .tool-result-panel .block.text,
+  .msg-assistant .tool-result-panel .block.markdown,
+  .msg-assistant .tool-result-panel .tool-payload,
+  .msg-assistant .tool-result-panel pre,
+  .tool-result-panel .block.text,
+  .tool-result-panel .block.markdown,
+  .tool-result-panel .tool-payload,
+  .tool-result-panel pre {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    line-height: 1.48;
+  }
+
   @media (max-width: 640px) {
     .theme-toggle {
       padding: 8px 10px;
@@ -1595,4 +1732,3 @@
       max-height: calc(100vh - 132px);
     }
   }
-

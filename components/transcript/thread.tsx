@@ -8,6 +8,15 @@ import { formatShortTime, titleCase } from "@/lib/transcript/utils";
 
 type EventLane = "user" | "assistant" | "system" | "activity";
 type ConversationLane = "user" | "assistant";
+type ParallelToolPair = {
+  toolUseEvent: NormalizedEvent;
+  toolUseBlock: ToolUseBlock;
+  toolResultEvent: NormalizedEvent;
+  toolResultBlock: ToolResultBlock;
+};
+type EventSegment =
+  | { kind: "event"; event: NormalizedEvent }
+  | { kind: "parallel-tools"; id: string; pairs: ParallelToolPair[] };
 
 function getEventLane(event: NormalizedEvent): EventLane {
   if (isMetadataEvent(event) || event.displayKind === "snapshot") return "activity";
@@ -60,6 +69,88 @@ function shouldSkipEvent(
   return resultBlocks.every((b) =>
     shouldHideRedundantToolResult(toolUseMap.get(b.toolUseId ?? ""), b),
   );
+}
+
+function onlyToolUseBlocks(event: NormalizedEvent): ToolUseBlock[] | null {
+  if (event.displayKind !== "tool_use") return null;
+  const blocks = event.blocks.filter((block): block is ToolUseBlock => block.kind === "tool_use");
+  return blocks.length === event.blocks.length && blocks.length > 0 ? blocks : null;
+}
+
+function onlyToolResultBlocks(event: NormalizedEvent): ToolResultBlock[] | null {
+  if (event.displayKind !== "tool_result") return null;
+  const blocks = event.blocks.filter((block): block is ToolResultBlock => block.kind === "tool_result");
+  return blocks.length === event.blocks.length && blocks.length > 0 ? blocks : null;
+}
+
+function buildConversationSegments(events: NormalizedEvent[]): EventSegment[] {
+  const segments: EventSegment[] = [];
+
+  for (let index = 0; index < events.length; ) {
+    const toolEvents: Array<{ event: NormalizedEvent; block: ToolUseBlock }> = [];
+    let cursor = index;
+
+    while (cursor < events.length) {
+      const blocks = onlyToolUseBlocks(events[cursor]!);
+      if (!blocks) break;
+      for (const block of blocks) {
+        if (block.id) {
+          toolEvents.push({ event: events[cursor]!, block });
+        }
+      }
+      cursor += 1;
+    }
+
+    if (toolEvents.length < 2) {
+      segments.push({ kind: "event", event: events[index]! });
+      index += 1;
+      continue;
+    }
+
+    const expectedIds = new Set(toolEvents.map(({ block }) => block.id));
+    const resultsById = new Map<string, { event: NormalizedEvent; block: ToolResultBlock }>();
+    let resultCursor = cursor;
+
+    while (resultCursor < events.length && resultsById.size < expectedIds.size) {
+      const blocks = onlyToolResultBlocks(events[resultCursor]!);
+      if (!blocks) break;
+
+      let matchedAny = false;
+      for (const block of blocks) {
+        const id = block.toolUseId;
+        if (id && expectedIds.has(id) && !resultsById.has(id)) {
+          resultsById.set(id, { event: events[resultCursor]!, block });
+          matchedAny = true;
+        }
+      }
+
+      if (!matchedAny) break;
+      resultCursor += 1;
+    }
+
+    if (resultsById.size !== expectedIds.size) {
+      segments.push({ kind: "event", event: events[index]! });
+      index += 1;
+      continue;
+    }
+
+    segments.push({
+      kind: "parallel-tools",
+      id: `parallel-${toolEvents[0]!.block.id}`,
+      pairs: toolEvents.map(({ event, block }) => {
+        const result = resultsById.get(block.id)!;
+        return {
+          toolUseEvent: event,
+          toolUseBlock: block,
+          toolResultEvent: result.event,
+          toolResultBlock: result.block,
+        };
+      }),
+    });
+    index = resultCursor;
+  }
+
+  return segments;
 }
 
 const USER_ICON = (
@@ -133,21 +224,71 @@ async function ActivityRow({ event, toolUseMap, toolResultMap }: BlocksProps) {
   );
 }
 
+async function ParallelToolBatch({
+  segment,
+  toolUseMap,
+  toolResultMap,
+}: {
+  segment: Extract<EventSegment, { kind: "parallel-tools" }>;
+  toolUseMap: Map<string, ToolUseBlock>;
+  toolResultMap: Map<string, ToolResultBlock>;
+}) {
+  const context = { toolUseMap, toolResultMap };
+  const renderedPairs = await Promise.all(
+    segment.pairs.map(async (pair, index) => {
+      const toolUse = await Block({ block: pair.toolUseBlock, context });
+      const showResult = !shouldHideRedundantToolResult(pair.toolUseBlock, pair.toolResultBlock);
+      const toolResult = showResult ? await Block({ block: pair.toolResultBlock, context }) : null;
+
+      return (
+        <div className="parallel-tool-pair" key={`${pair.toolUseBlock.id}-${index}`}>
+          {toolUse ? <div>{toolUse}</div> : <p className="empty-note">{fallbackText(pair.toolUseEvent)}</p>}
+          {toolResult ? <div className="parallel-tool-result">{toolResult}</div> : null}
+        </div>
+      );
+    }),
+  );
+
+  return (
+    <details className="block parallel-tool-batch" open>
+      <summary>
+        <span className="parallel-tool-title">Parallel tool calls</span>
+        <span className="parallel-tool-count">{segment.pairs.length} calls</span>
+      </summary>
+      <div className="parallel-tool-list">{renderedPairs}</div>
+    </details>
+  );
+}
+
 interface ClusterProps {
   lane: ConversationLane;
   events: NormalizedEvent[];
   toolUseMap: Map<string, ToolUseBlock>;
   toolResultMap: Map<string, ToolResultBlock>;
+  assistantLabel: string;
 }
 
-async function ConversationCluster({ lane, events, toolUseMap, toolResultMap }: ClusterProps) {
+async function ConversationCluster({ lane, events, toolUseMap, toolResultMap, assistantLabel }: ClusterProps) {
   const isUser = lane === "user";
   const firstEvent = events[0];
   const timeStr = firstEvent?.timestamp ? formatShortTime(firstEvent.timestamp) : null;
   const clusterId = firstEvent?.id ?? undefined;
 
+  const segments = lane === "assistant" ? buildConversationSegments(events) : events.map((event) => ({ kind: "event" as const, event }));
   const blocksHtml = await Promise.all(
-    events.map(async (event, ei) => {
+    segments.map(async (segment, ei) => {
+      if (segment.kind === "parallel-tools") {
+        return (
+          <ParallelToolBatch
+            key={segment.id}
+            segment={segment}
+            toolUseMap={toolUseMap}
+            toolResultMap={toolResultMap}
+          />
+        );
+      }
+
+      const event = segment.event;
       const context = { toolUseMap, toolResultMap };
       const blocks = await Promise.all(
         event.blocks.map(async (block, bi) => {
@@ -169,7 +310,7 @@ async function ConversationCluster({ lane, events, toolUseMap, toolResultMap }: 
       </div>
       <div className="msg-body">
         <div className="msg-head">
-          <span className="msg-role">{isUser ? "You" : "Claude"}</span>
+          <span className="msg-role">{isUser ? "You" : assistantLabel}</span>
           {timeStr ? <span className="msg-time">{timeStr}</span> : null}
         </div>
         <div className="msg-blocks">
@@ -187,9 +328,10 @@ interface FeedProps {
   toolUseMap: Map<string, ToolUseBlock>;
   toolResultMap: Map<string, ToolResultBlock>;
   hideRedundant?: boolean;
+  assistantLabel: string;
 }
 
-async function EventFeed({ events, toolUseMap, toolResultMap, hideRedundant }: FeedProps) {
+async function EventFeed({ events, toolUseMap, toolResultMap, hideRedundant, assistantLabel }: FeedProps) {
   type ClusterAcc = { lane: ConversationLane; events: NormalizedEvent[] } | null;
   const sections: React.ReactNode[] = [];
   let cluster: ClusterAcc = null;
@@ -203,6 +345,7 @@ async function EventFeed({ events, toolUseMap, toolResultMap, hideRedundant }: F
         events={cluster.events}
         toolUseMap={toolUseMap}
         toolResultMap={toolResultMap}
+        assistantLabel={assistantLabel}
       />,
     );
     cluster = null;
@@ -241,9 +384,11 @@ async function EventFeed({ events, toolUseMap, toolResultMap, hideRedundant }: F
 export async function Thread({
   thread,
   showHeader,
+  assistantLabel = "Claude",
 }: {
   thread: NormalizedThread;
   showHeader: boolean;
+  assistantLabel?: string;
 }) {
   const { primaryEvents, hiddenEvents } = splitThreadEvents(thread.events);
   const toolUseMap = buildToolUseMap(thread);
@@ -266,6 +411,7 @@ export async function Thread({
           toolUseMap={toolUseMap}
           toolResultMap={toolResultMap}
           hideRedundant
+          assistantLabel={assistantLabel}
         />
       </div>
 
@@ -279,6 +425,7 @@ export async function Thread({
               events={hiddenEvents}
               toolUseMap={toolUseMap}
               toolResultMap={toolResultMap}
+              assistantLabel={assistantLabel}
             />
           </div>
         </details>

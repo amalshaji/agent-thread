@@ -1,4 +1,11 @@
-import type { DiscoveredClaudeSession } from "../shared/claude";
+export interface DisplaySession {
+  sessionId: string;
+  title: string | null;
+  latestTimestamp: string | null;
+  eventCount: number;
+  sidechainCount: number;
+  gitBranch: string | null;
+}
 
 function formatDate(value: string | null): string {
   if (!value) {
@@ -9,12 +16,12 @@ function formatDate(value: string | null): string {
   return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString();
 }
 
-export function formatSessionLabel(session: DiscoveredClaudeSession, maxLength = 60): string {
+export function formatSessionLabel(session: DisplaySession, maxLength = 60): string {
   const label = session.title ?? session.sessionId;
   return label.length > maxLength ? label.slice(0, maxLength - 1) + "…" : label;
 }
 
-export function formatSessionHint(session: DiscoveredClaudeSession): string {
+export function formatSessionHint(session: DisplaySession): string {
   const pieces = [
     formatDate(session.latestTimestamp),
     `${session.eventCount} events`,
