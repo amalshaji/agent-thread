@@ -27,6 +27,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      issues: read
+      pull-requests: read
     steps:
       - uses: actions/checkout@v4
 
@@ -43,7 +45,7 @@ jobs:
       - name: Check if version changed
         id: version
         run: |
-          CURRENT=$(node -p "require('./package.json').version")
+          CURRENT=$(bun -e "const pkg = await Bun.file('package.json').json(); console.log(pkg.version)")
           PUBLISHED=$(npm show agent-thread version 2>/dev/null || echo "0.0.0")
           echo "current=$CURRENT"
           echo "published=$PUBLISHED"
@@ -66,12 +68,64 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
+      - name: Build CLI release notes
+        if: steps.version.outputs.changed == 'true'
+        run: |
+          set -euo pipefail
+
+          PREVIOUS_PUBLISHED_AT=$(gh release list \
+            --exclude-drafts \
+            --exclude-pre-releases \
+            --limit 1 \
+            --json publishedAt \
+            --jq '.[0].publishedAt // ""')
+
+          echo "previous_published_at=$PREVIOUS_PUBLISHED_AT"
+
+          if [ -n "$PREVIOUS_PUBLISHED_AT" ]; then
+            SEARCH_DATE="${PREVIOUS_PUBLISHED_AT%%T*}"
+            gh pr list \
+              --state merged \
+              --base main \
+              --label cli \
+              --search "merged:>$SEARCH_DATE" \
+              --limit 200 \
+              --json number,title,url,mergedAt > cli-prs.json
+          else
+            gh pr list \
+              --state merged \
+              --base main \
+              --label cli \
+              --limit 200 \
+              --json number,title,url,mergedAt > cli-prs.json
+          fi
+
+          cat > build-release-notes.ts <<'EOF'
+          const since = process.env.PREVIOUS_PUBLISHED_AT ?? "";
+          const prs = (await Bun.file("cli-prs.json").json())
+            .filter((pr: { mergedAt: string }) => !since || pr.mergedAt > since)
+            .sort((left: { mergedAt: string }, right: { mergedAt: string }) => left.mergedAt.localeCompare(right.mergedAt));
+
+          const lines = ["## CLI changes", ""];
+          if (prs.length === 0) {
+            lines.push("No CLI-labeled pull requests were found for this release.");
+          } else {
+            lines.push(...prs.map((pr: { title: string; number: number; url: string }) => `- ${pr.title} ([#${pr.number}](${pr.url}))`));
+          }
+
+          await Bun.write("release-notes.md", `${lines.join("\n")}\n`);
+          EOF
+
+          PREVIOUS_PUBLISHED_AT="$PREVIOUS_PUBLISHED_AT" bun build-release-notes.ts
+        env:
+          GH_TOKEN: ${{ github.token }}
+
       - name: Create GitHub release
         if: steps.version.outputs.changed == 'true'
         run: |
           gh release create "v${{ steps.version.outputs.current }}" \
             --title "v${{ steps.version.outputs.current }}" \
-            --generate-notes \
+            --notes-file release-notes.md \
             --target "${{ github.sha }}"
         env:
           GH_TOKEN: ${{ github.token }}
