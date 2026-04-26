@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 
 import { DEFAULT_SERVER_URL, parseArgs, resolveServerUrl } from "../src/cli/args";
-import { formatUploadFailure } from "../src/cli/upload";
+import { buildPublicThreadUrl, formatUploadFailure } from "../src/cli/upload";
 import { isUploadRequest } from "../lib/validation";
 
 describe("CLI server URL resolution", () => {
@@ -19,6 +19,32 @@ describe("CLI provider args", () => {
     expect(parseArgs([]).provider).toBe("claude");
     expect(parseArgs(["--codex", "--codex-home", "/tmp/codex"]).provider).toBe("codex");
     expect(parseArgs(["--codex", "--claude"]).provider).toBe("claude");
+  });
+
+  test("parses import flags and keeps workspace independent from cwd", () => {
+    const options = parseArgs([
+      "--import",
+      "abc123",
+      "--to",
+      "codex",
+      "--cwd",
+      "/tmp/upload-scope",
+      "--workspace",
+      "/tmp/import-workspace",
+      "--dry-run",
+      "--force",
+    ]);
+
+    expect(options.importRef).toBe("abc123");
+    expect(options.importTarget).toBe("codex");
+    expect(options.cwd).toBe("/tmp/upload-scope");
+    expect(options.workspace).toBe("/tmp/import-workspace");
+    expect(options.dryRun).toBe(true);
+    expect(options.force).toBe(true);
+  });
+
+  test("defaults import workspace to the current process cwd", () => {
+    expect(parseArgs(["--import", "abc123"]).workspace).toBe(process.cwd());
   });
 });
 
@@ -83,5 +109,12 @@ describe("upload failure formatting", () => {
     await expect(formatUploadFailure(response, new URL("/api/uploads", "https://agent-thread.com"))).resolves.toBe(
       "Upload failed (400): Invalid upload payload.",
     );
+  });
+});
+
+describe("upload URL formatting", () => {
+  test("prints links from the resolved CLI server URL", () => {
+    expect(buildPublicThreadUrl("http://127.0.0.1:3000", "abc123")).toBe("http://127.0.0.1:3000/t/abc123");
+    expect(buildPublicThreadUrl("http://127.0.0.1:3000/", "abc123")).toBe("http://127.0.0.1:3000/t/abc123");
   });
 });

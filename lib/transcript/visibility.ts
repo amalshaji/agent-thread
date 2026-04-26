@@ -2,6 +2,10 @@ import type { NormalizedEvent } from "@/src/shared/contracts";
 import { isMetadataEvent } from "./event-classification";
 
 export function isPrimaryEvent(event: NormalizedEvent): boolean {
+  if (event.meta.entrypoint === "codex" && event.meta.subtype === "token_count") {
+    return true;
+  }
+
   if (isMetadataEvent(event)) {
     return false;
   }

@@ -4,6 +4,7 @@ import { renderToReadableStream } from "react-dom/server";
 
 import type { NormalizedSession, NormalizedThread } from "../src/shared/contracts";
 import { resetDiffBudget } from "../lib/transcript/diff";
+import { getToolMeta } from "../lib/transcript/tool-inline";
 import { Thread } from "../components/transcript/thread";
 
 async function renderThread(thread: NormalizedThread, showHeader = false): Promise<string> {
@@ -27,6 +28,21 @@ function mainThread(session: NormalizedSession): NormalizedThread {
   if (!t) throw new Error("no thread");
   return t;
 }
+
+test("summarizes exec_command tool inputs with a command preview", () => {
+  const idealCommand = "find /Users/amalshaji/.codex/sqlite -maxdepth 2 -type f -print";
+  const meta = getToolMeta("exec_command", {
+    cmd: `  ${idealCommand}\nignored second line`,
+  });
+
+  expect(meta.shortName).toBe("exec_command");
+  expect(meta.summary).toBe(idealCommand);
+  expect(meta.iconPaths).toContain("polyline");
+
+  const truncated = getToolMeta("exec_command", { cmd: "x".repeat(100) });
+  expect(truncated.summary.length).toBe(idealCommand.length);
+  expect(truncated.summary.endsWith("...")).toBe(true);
+});
 
 test("hides empty thinking pre blocks and renders patch diffs", async () => {
   const session: NormalizedSession = {
@@ -388,6 +404,57 @@ test("keeps tool calls and results in the assistant lane", async () => {
   expect(html).toContain("1 response");
 });
 
+test("renders tool outputs without a separate show-call affordance", async () => {
+  const thread: NormalizedThread = {
+    id: "thread-tool-link",
+    kind: "main",
+    sessionId: "session-tool-link",
+    agentId: null,
+    sourceFileName: "session-tool-link.jsonl",
+    sourceRelativePath: "project-tool-link/session-tool-link.jsonl",
+    cwd: "/tmp/project",
+    gitBranch: "main",
+    startedAt: "2026-03-27T00:00:00.000Z",
+    rootEventIds: ["tool-use-link", "tool-result-link"],
+    events: [
+      {
+        id: "tool-use-link",
+        parentId: null,
+        seq: 0,
+        timestamp: "2026-03-27T00:00:01.000Z",
+        topLevelType: "assistant",
+        role: "assistant",
+        displayKind: "tool_use",
+        blocks: [{ kind: "tool_use", id: "call-linked", name: "Bash", input: { command: "pwd" } }],
+        textPreview: null,
+        flags: { isMeta: false, isSidechain: false },
+        refs: {},
+        meta: {},
+      },
+      {
+        id: "tool-result-link",
+        parentId: null,
+        seq: 1,
+        timestamp: "2026-03-27T00:00:02.000Z",
+        topLevelType: "assistant",
+        role: "assistant",
+        displayKind: "tool_result",
+        blocks: [{ kind: "tool_result", toolUseId: "call-linked", content: "/tmp/project" }],
+        textPreview: null,
+        flags: { isMeta: false, isSidechain: false },
+        refs: {},
+        meta: {},
+      },
+    ],
+  };
+
+  const html = await renderThread(thread);
+
+  expect(html).toContain("Tool output");
+  expect(html).not.toContain("Show call");
+  expect(html).not.toContain("data-show-tool-call");
+});
+
 test("renders generic tool inputs as readable JSON without a nested payload frame", async () => {
   const thread: NormalizedThread = {
     id: "thread-agent-json",
@@ -502,6 +569,108 @@ test("renders structured tool result text as markdown instead of JSON", async ()
   expect(html).toContain('class="block tool-result-disclosure"');
   expect(html).toContain("Tool output");
   expect(html).toContain("1 response");
+});
+
+test("formats JSON string tool results as readable JSON", async () => {
+  const thread: NormalizedThread = {
+    id: "thread-tool-json-result",
+    kind: "main",
+    sessionId: "session-tool-json-result",
+    agentId: null,
+    sourceFileName: "session-tool-json-result.jsonl",
+    sourceRelativePath: "project-tool-json-result/session-tool-json-result.jsonl",
+    cwd: "/tmp/project",
+    gitBranch: "main",
+    startedAt: "2026-03-27T00:00:00.000Z",
+    rootEventIds: ["tool-result-json"],
+    events: [
+      {
+        id: "tool-result-json",
+        parentId: null,
+        seq: 0,
+        timestamp: "2026-03-27T00:00:01.000Z",
+        topLevelType: "response_item.function_call_output",
+        role: "assistant",
+        displayKind: "tool_result",
+        blocks: [
+          {
+            kind: "tool_result",
+            toolUseId: "call-json",
+            content: JSON.stringify({
+              result: {
+                Output: JSON.stringify({ ok: true, items: ["one", "two"] }),
+                exitCode: 0,
+              },
+            }),
+          },
+        ],
+        textPreview: null,
+        flags: { isMeta: false, isSidechain: false },
+        refs: {},
+        meta: {},
+      },
+    ],
+  };
+
+  const html = await renderThread(thread);
+
+  expect(html).toContain('class="tool-payload"');
+  expect(html).toContain("&quot;result&quot;: {");
+  expect(html).toContain("&quot;Output&quot;: {");
+  expect(html).toContain("&quot;ok&quot;: true");
+  expect(html).toContain("&quot;items&quot;: [");
+  expect(html).not.toContain("\\&quot;ok\\&quot;");
+});
+
+test("formats JSON after tool output metadata as readable JSON", async () => {
+  const thread: NormalizedThread = {
+    id: "thread-tool-output-json-result",
+    kind: "main",
+    sessionId: "session-tool-output-json-result",
+    agentId: null,
+    sourceFileName: "session-tool-output-json-result.jsonl",
+    sourceRelativePath: "project-tool-output-json-result/session-tool-output-json-result.jsonl",
+    cwd: "/tmp/project",
+    gitBranch: "main",
+    startedAt: "2026-03-27T00:00:00.000Z",
+    rootEventIds: ["tool-result-output-json"],
+    events: [
+      {
+        id: "tool-result-output-json",
+        parentId: null,
+        seq: 0,
+        timestamp: "2026-03-27T00:00:01.000Z",
+        topLevelType: "response_item.function_call_output",
+        role: "assistant",
+        displayKind: "tool_result",
+        blocks: [
+          {
+            kind: "tool_result",
+            toolUseId: "call-output-json",
+            content: [
+              "Chunk ID: abc123",
+              "Wall time: 0.0000 seconds",
+              "Process exited with code 0",
+              "Output:",
+              "{\"name\":\"agent-thread\",\"scripts\":{\"dev\":\"bun --bun ./node_modules/next/dist/bin/next dev\"}}",
+            ].join("\n"),
+          },
+        ],
+        textPreview: null,
+        flags: { isMeta: false, isSidechain: false },
+        refs: {},
+        meta: {},
+      },
+    ],
+  };
+
+  const html = await renderThread(thread);
+
+  expect(html).toContain("Chunk ID: abc123");
+  expect(html).toContain("Output:");
+  expect(html).toContain("&quot;name&quot;: &quot;agent-thread&quot;");
+  expect(html).toContain("&quot;scripts&quot;: {");
+  expect(html).toContain("\n  &quot;name&quot;");
 });
 
 test("renders structured tool result images as attachments", async () => {
@@ -944,6 +1113,89 @@ test("renders normalized meta events as hidden activity instead of user bubbles"
   expect(html).toContain('class="message-row lane-activity event-meta"');
 });
 
+test("renders Codex token count as an inline expandable activity bubble", async () => {
+  const thread: NormalizedThread = {
+    id: "thread-codex-token-count",
+    kind: "main",
+    sessionId: "session-codex-token-count",
+    agentId: null,
+    sourceFileName: "session-codex-token-count.jsonl",
+    sourceRelativePath: "codex/session-codex-token-count.jsonl",
+    cwd: "/tmp/project",
+    gitBranch: "main",
+    startedAt: "2026-03-27T00:00:00.000Z",
+    rootEventIds: ["user-1", "token-1", "user-2"],
+    events: [
+      {
+        id: "user-1",
+        parentId: null,
+        seq: 0,
+        timestamp: "2026-03-27T00:00:01.000Z",
+        topLevelType: "response_item.message",
+        role: "user",
+        displayKind: "message",
+        blocks: [{ kind: "text", text: "First user message" }],
+        textPreview: "First user message",
+        flags: { isMeta: false, isSidechain: false },
+        refs: {},
+        meta: { entrypoint: "codex" },
+      },
+      {
+        id: "token-1",
+        parentId: null,
+        seq: 1,
+        timestamp: "2026-03-27T00:00:02.000Z",
+        topLevelType: "event_msg.token_count",
+        role: null,
+        displayKind: "meta",
+        blocks: [{ kind: "text", text: "Codex token usage" }],
+        textPreview: "Codex token usage",
+        flags: { isMeta: true, isSidechain: false },
+        refs: {},
+        meta: {
+          entrypoint: "codex",
+          subtype: "token_count",
+          usage: {
+            last: {
+              inputTokens: 148552,
+              cachedInputTokens: 146816,
+              outputTokens: 478,
+              reasoningOutputTokens: 24,
+              totalTokens: 149030,
+            },
+            modelContextWindow: 258400,
+          },
+        },
+      },
+      {
+        id: "user-2",
+        parentId: null,
+        seq: 2,
+        timestamp: "2026-03-27T00:00:03.000Z",
+        topLevelType: "response_item.message",
+        role: "user",
+        displayKind: "message",
+        blocks: [{ kind: "text", text: "Second user message" }],
+        textPreview: "Second user message",
+        flags: { isMeta: false, isSidechain: false },
+        refs: {},
+        meta: { entrypoint: "codex" },
+      },
+    ],
+  };
+
+  const html = await renderThread(thread);
+  const userClusterMatches = html.match(/class="msg msg-user"/g) ?? [];
+
+  expect(userClusterMatches).toHaveLength(2);
+  expect(html).toContain('class="codex-token-bubble"');
+  expect(html).toContain("Codex token usage");
+  expect(html).toMatch(/149,030(?:<!-- -->)? tokens/);
+  expect(html).toContain("Cached input");
+  expect(html).toContain("258,400");
+  expect(html).not.toContain("Show 1 hidden activity item");
+});
+
 test("hides legacy local command records from the primary transcript", async () => {
   const session: NormalizedSession = {
     schemaVersion: 1,
@@ -1221,6 +1473,7 @@ test("groups parallel tool calls with matching outputs", async () => {
   const html = await renderThread(thread);
 
   expect(html).toContain("Parallel tool calls");
+  expect(html).toContain('class="parallel-tool-accordion-icon"');
   expect(html).toMatch(/2(?:<!-- -->)? calls/);
   expect(html).toContain("/tmp/project");
   expect(html).toContain("package.json");

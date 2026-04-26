@@ -27,31 +27,29 @@ const CHEV_SVG = (
 function ToolCallSummary({ name, input }: { name: string; input: unknown }) {
   const meta = getToolMeta(name, input);
   return (
-    <span className={`tool-color-${meta.color}`} style={{ display: "contents" }}>
-      <span className="tool-pill-row tool-pill-row-primary">
-        <span className="tool-call-icon">
-          <svg
-            width="11"
-            height="11"
-            viewBox="0 0 16 16"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-            dangerouslySetInnerHTML={{ __html: meta.iconPaths }}
-          />
-        </span>
-        <span className="tool-pill tool-pill-call">{meta.shortName}</span>
-        {meta.summary ? (
-          <>
-            <span className="tool-call-sep">—</span>
-            <span className="tool-call-summary">{meta.summary}</span>
-          </>
-        ) : null}
+    <span className={`toolcall-head-inner tool-color-${meta.color}`}>
+      <span className="toolcall-chevron">{CHEV_SVG}</span>
+      <span className="toolcall-icon">
+        <svg
+          width="12"
+          height="12"
+          viewBox="0 0 16 16"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+          dangerouslySetInnerHTML={{ __html: meta.iconPaths }}
+        />
       </span>
-      <span className="tool-call-chev">{CHEV_SVG}</span>
+      <span className="toolcall-name">{meta.shortName}</span>
+      {meta.summary ? (
+        <>
+          <span className="toolcall-sep">·</span>
+          <span className="toolcall-summary">{meta.summary}</span>
+        </>
+      ) : null}
     </span>
   );
 }
@@ -182,15 +180,20 @@ export async function ToolUseBlockComponent({
 
   if (preview) {
     return (
-      <details className={`block tool-call-disclosure ${colorClass}`} open>
+      <details className={`block tool-call-disclosure toolcall ${colorClass}`} open>
         <summary>
           <ToolCallSummary name={block.name} input={block.input} />
         </summary>
-        {preview.kind === "file" ? (
-          <ToolFilePreview content={preview.content} fileName={preview.fileName} />
-        ) : (
-          <div dangerouslySetInnerHTML={{ __html: preview.html }} />
-        )}
+        <div className="toolcall-body">
+          <div className="toolcall-section">
+            <div className="toolcall-section-label">Input</div>
+            {preview.kind === "file" ? (
+              <ToolFilePreview content={preview.content} fileName={preview.fileName} />
+            ) : (
+              <div dangerouslySetInnerHTML={{ __html: preview.html }} />
+            )}
+          </div>
+        </div>
       </details>
     );
   }
@@ -198,18 +201,23 @@ export async function ToolUseBlockComponent({
   const payload = <pre className="tool-payload tool-call-payload">{prettyJson(block.input)}</pre>;
 
   return (
-    <details className={`block tool-call-disclosure ${colorClass}`}>
+    <details className={`block tool-call-disclosure toolcall ${colorClass}`}>
       <summary>
         <ToolCallSummary name={block.name} input={block.input} />
       </summary>
-      {diffHtml ? (
-        <div className="tool-call-panel">
-          <div dangerouslySetInnerHTML={{ __html: diffHtml }} />
-          {payload}
+      <div className="toolcall-body">
+        <div className="toolcall-section">
+          <div className="toolcall-section-label">Input</div>
+          {diffHtml ? (
+            <div className="tool-call-panel">
+              <div dangerouslySetInnerHTML={{ __html: diffHtml }} />
+              {payload}
+            </div>
+          ) : (
+            payload
+          )}
         </div>
-      ) : (
-        payload
-      )}
+      </div>
     </details>
   );
 }

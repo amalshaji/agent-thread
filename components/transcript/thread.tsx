@@ -4,7 +4,7 @@ import { isMetadataEvent } from "@/lib/transcript/event-classification";
 import { shouldHideRedundantToolResult } from "@/lib/transcript/tool-inline";
 import type { ToolResultBlock, ToolUseBlock } from "@/lib/transcript/tool-inline";
 import { splitThreadEvents } from "@/lib/transcript/visibility";
-import { formatShortTime, titleCase } from "@/lib/transcript/utils";
+import { formatRelativeTime, formatShortTime, titleCase } from "@/lib/transcript/utils";
 
 type EventLane = "user" | "assistant" | "system" | "activity";
 type ConversationLane = "user" | "assistant";
@@ -166,6 +166,14 @@ const ASSISTANT_ICON = (
   </svg>
 );
 
+const ANCHOR_ICON = (
+  <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M6.5 9.5 9.5 6.5" />
+    <path d="M7.5 4.5 8.4 3.6a3 3 0 1 1 4.2 4.2l-.9.9" />
+    <path d="M8.5 11.5l-.9.9a3 3 0 1 1-4.2-4.2l.9-.9" />
+  </svg>
+);
+
 function fallbackText(event: NormalizedEvent): string {
   if (event.displayKind === "thinking") return "Thinking was captured without displayable text.";
   if (event.displayKind === "snapshot") return "Workspace snapshot captured.";
@@ -176,11 +184,96 @@ function fallbackText(event: NormalizedEvent): string {
 function getEventSpeaker(event: NormalizedEvent, lane: EventLane): string {
   if (lane === "user") return "User";
   if (lane === "assistant") return "Assistant";
+  if (event.meta.entrypoint === "codex" && event.meta.subtype === "token_count") return "Codex";
   if (event.displayKind === "tool_result") return "Tool Result";
   if (event.displayKind === "tool_use") return "Tool Call";
   if (event.displayKind === "snapshot") return "Snapshot";
   if (isMetadataEvent(event)) return "Activity";
   return titleCase(event.role ?? event.topLevelType);
+}
+
+type TokenUsageRecord = {
+  inputTokens?: number;
+  cachedInputTokens?: number;
+  outputTokens?: number;
+  reasoningOutputTokens?: number;
+  totalTokens?: number;
+};
+
+type CodexTokenUsage = {
+  last?: TokenUsageRecord | null;
+  total?: TokenUsageRecord | null;
+  modelContextWindow?: number;
+};
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as Record<string, unknown>) : null;
+}
+
+function numberFrom(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
+function tokenUsageRecord(value: unknown): TokenUsageRecord | null {
+  const record = asRecord(value);
+  if (!record) return null;
+
+  const usage = {
+    inputTokens: numberFrom(record.inputTokens),
+    cachedInputTokens: numberFrom(record.cachedInputTokens),
+    outputTokens: numberFrom(record.outputTokens),
+    reasoningOutputTokens: numberFrom(record.reasoningOutputTokens),
+    totalTokens: numberFrom(record.totalTokens),
+  };
+
+  return Object.values(usage).some((entry) => entry !== undefined) ? usage : null;
+}
+
+function codexTokenUsage(event: NormalizedEvent): CodexTokenUsage | null {
+  if (event.meta.entrypoint !== "codex" || event.meta.subtype !== "token_count") return null;
+
+  const usage = asRecord(event.meta.usage);
+  if (!usage) return null;
+
+  const last = tokenUsageRecord(usage.last);
+  const total = tokenUsageRecord(usage.total);
+  const modelContextWindow = numberFrom(usage.modelContextWindow);
+
+  if (!last && !total && modelContextWindow === undefined) return null;
+  return { last, total, modelContextWindow };
+}
+
+function formatTokenCount(value: number | undefined): string {
+  return value === undefined ? "unknown" : value.toLocaleString("en-US");
+}
+
+function TokenMetric({ label, value }: { label: string; value: number | undefined }) {
+  return (
+    <div className="codex-token-metric">
+      <dt>{label}</dt>
+      <dd>{formatTokenCount(value)}</dd>
+    </div>
+  );
+}
+
+function CodexTokenUsageBlock({ usage }: { usage: CodexTokenUsage }) {
+  const last: TokenUsageRecord = usage.last ?? {};
+
+  return (
+    <details className="codex-token-bubble">
+      <summary>
+        <span className="codex-token-title">Codex token usage</span>
+        <span className="codex-token-total">{formatTokenCount(last.totalTokens)} tokens</span>
+      </summary>
+      <dl className="codex-token-grid">
+        <TokenMetric label="Input" value={last.inputTokens} />
+        <TokenMetric label="Cached input" value={last.cachedInputTokens} />
+        <TokenMetric label="Output" value={last.outputTokens} />
+        <TokenMetric label="Reasoning" value={last.reasoningOutputTokens} />
+        <TokenMetric label="Context window" value={usage.modelContextWindow} />
+      </dl>
+    </details>
+  );
 }
 
 interface BlocksProps {
@@ -205,6 +298,7 @@ async function EventBlocks({ event, toolUseMap, toolResultMap }: BlocksProps) {
 async function ActivityRow({ event, toolUseMap, toolResultMap }: BlocksProps) {
   const lane = getEventLane(event);
   const speaker = getEventSpeaker(event, lane);
+  const tokenUsage = codexTokenUsage(event);
   const timestamp = event.timestamp
     ? new Date(event.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
     : null;
@@ -217,7 +311,11 @@ async function ActivityRow({ event, toolUseMap, toolResultMap }: BlocksProps) {
           {timestamp ? <span>{timestamp}</span> : null}
         </header>
         <div className="activity-body">
-          <EventBlocks event={event} toolUseMap={toolUseMap} toolResultMap={toolResultMap} />
+          {tokenUsage ? (
+            <CodexTokenUsageBlock usage={tokenUsage} />
+          ) : (
+            <EventBlocks event={event} toolUseMap={toolUseMap} toolResultMap={toolResultMap} />
+          )}
         </div>
       </article>
     </div>
@@ -252,6 +350,11 @@ async function ParallelToolBatch({
   return (
     <details className="block parallel-tool-batch" open>
       <summary>
+        <span className="parallel-tool-accordion-icon" aria-hidden="true">
+          <span />
+          <span />
+          <span />
+        </span>
         <span className="parallel-tool-title">Parallel tool calls</span>
         <span className="parallel-tool-count">{segment.pairs.length} calls</span>
       </summary>
@@ -266,12 +369,14 @@ interface ClusterProps {
   toolUseMap: Map<string, ToolUseBlock>;
   toolResultMap: Map<string, ToolResultBlock>;
   assistantLabel: string;
+  startedAt?: string | null;
 }
 
-async function ConversationCluster({ lane, events, toolUseMap, toolResultMap, assistantLabel }: ClusterProps) {
+async function ConversationCluster({ lane, events, toolUseMap, toolResultMap, assistantLabel, startedAt }: ClusterProps) {
   const isUser = lane === "user";
   const firstEvent = events[0];
   const timeStr = firstEvent?.timestamp ? formatShortTime(firstEvent.timestamp) : null;
+  const deltaStr = firstEvent?.timestamp ? formatRelativeTime(firstEvent.timestamp, startedAt) : null;
   const clusterId = firstEvent?.id ?? undefined;
 
   const segments = lane === "assistant" ? buildConversationSegments(events) : events.map((event) => ({ kind: "event" as const, event }));
@@ -312,6 +417,12 @@ async function ConversationCluster({ lane, events, toolUseMap, toolResultMap, as
         <div className="msg-head">
           <span className="msg-role">{isUser ? "You" : assistantLabel}</span>
           {timeStr ? <span className="msg-time">{timeStr}</span> : null}
+          {deltaStr ? <span className="msg-delta">{deltaStr}</span> : null}
+          {clusterId ? (
+            <a className="msg-anchor" href={`#${clusterId}`} aria-label="Copyable link to this message">
+              {ANCHOR_ICON}
+            </a>
+          ) : null}
         </div>
         <div className="msg-blocks">
           {blocksHtml.map((content, i) => (
@@ -329,9 +440,10 @@ interface FeedProps {
   toolResultMap: Map<string, ToolResultBlock>;
   hideRedundant?: boolean;
   assistantLabel: string;
+  startedAt?: string | null;
 }
 
-async function EventFeed({ events, toolUseMap, toolResultMap, hideRedundant, assistantLabel }: FeedProps) {
+async function EventFeed({ events, toolUseMap, toolResultMap, hideRedundant, assistantLabel, startedAt }: FeedProps) {
   type ClusterAcc = { lane: ConversationLane; events: NormalizedEvent[] } | null;
   const sections: React.ReactNode[] = [];
   let cluster: ClusterAcc = null;
@@ -346,6 +458,7 @@ async function EventFeed({ events, toolUseMap, toolResultMap, hideRedundant, ass
         toolUseMap={toolUseMap}
         toolResultMap={toolResultMap}
         assistantLabel={assistantLabel}
+        startedAt={startedAt}
       />,
     );
     cluster = null;
@@ -385,10 +498,12 @@ export async function Thread({
   thread,
   showHeader,
   assistantLabel = "Claude",
+  startedAt,
 }: {
   thread: NormalizedThread;
   showHeader: boolean;
   assistantLabel?: string;
+  startedAt?: string | null;
 }) {
   const { primaryEvents, hiddenEvents } = splitThreadEvents(thread.events);
   const toolUseMap = buildToolUseMap(thread);
@@ -412,6 +527,7 @@ export async function Thread({
           toolResultMap={toolResultMap}
           hideRedundant
           assistantLabel={assistantLabel}
+          startedAt={startedAt}
         />
       </div>
 
@@ -426,6 +542,7 @@ export async function Thread({
               toolUseMap={toolUseMap}
               toolResultMap={toolResultMap}
               assistantLabel={assistantLabel}
+              startedAt={startedAt}
             />
           </div>
         </details>

@@ -16,22 +16,92 @@ function getTextFromRecord(record: RecordValue | null): string | null {
   return null;
 }
 
+function parseJsonObjectOrArray(value: string, depth = 0): unknown | null {
+  const trimmed = value.trim();
+  if (!trimmed.startsWith("{") && !trimmed.startsWith("[")) {
+    return null;
+  }
+
+  try {
+    return parseNestedJsonStrings(JSON.parse(trimmed), depth);
+  } catch {
+    return null;
+  }
+}
+
+function parseNestedJsonStrings(value: unknown, depth = 0): unknown {
+  if (depth >= 4) {
+    return value;
+  }
+
+  if (typeof value === "string") {
+    return parseJsonObjectOrArray(value, depth + 1) ?? value;
+  }
+
+  if (Array.isArray(value)) {
+    return value.map((entry) => parseNestedJsonStrings(entry, depth + 1));
+  }
+
+  const record = asRecord(value);
+  if (!record) {
+    return value;
+  }
+
+  return Object.fromEntries(
+    Object.entries(record).map(([key, entry]) => [key, parseNestedJsonStrings(entry, depth + 1)]),
+  );
+}
+
+function formatEmbeddedJsonOutput(value: string): string | null {
+  const normalized = value.replace(/\r\n/g, "\n");
+  const lines = normalized.split("\n");
+  const outputLineIndex = lines.findLastIndex((line) => line.trim() === "Output:");
+  if (outputLineIndex < 0) {
+    return null;
+  }
+
+  const output = lines.slice(outputLineIndex + 1).join("\n");
+  const parsed = parseJsonObjectOrArray(output);
+  if (parsed === null) {
+    return null;
+  }
+
+  return [
+    ...lines.slice(0, outputLineIndex + 1),
+    prettyJson(parsed),
+  ].join("\n");
+}
+
+async function ToolResultText({ text }: { text: string }) {
+  const parsed = parseJsonObjectOrArray(text);
+  if (parsed !== null) {
+    return <pre className="tool-payload">{prettyJson(parsed)}</pre>;
+  }
+
+  const formattedOutput = formatEmbeddedJsonOutput(text);
+  if (formattedOutput !== null) {
+    return <pre className="tool-payload">{formattedOutput}</pre>;
+  }
+
+  return <TextContent text={text} />;
+}
+
 async function ToolResultEntry({ entry }: { entry: unknown }) {
   if (typeof entry === "string") {
-    return <TextContent text={entry} />;
+    return <ToolResultText text={entry} />;
   }
   if (getRenderableImage(entry)) {
     return <ImageAttachment value={entry} alt="Tool result image" />;
   }
   const record = asRecord(entry);
   const text = getTextFromRecord(record);
-  if (text) return <TextContent text={text} />;
+  if (text) return <ToolResultText text={text} />;
   return <pre className="tool-payload">{prettyJson(entry)}</pre>;
 }
 
 async function ToolResultContent({ content }: { content: unknown }) {
   if (typeof content === "string") {
-    return <TextContent text={content} />;
+    return <ToolResultText text={content} />;
   }
   if (getRenderableImage(content)) {
     return <ImageAttachment value={content} alt="Tool result image" />;
@@ -52,7 +122,7 @@ async function ToolResultContent({ content }: { content: unknown }) {
   }
   const record = asRecord(content);
   const text = getTextFromRecord(record);
-  if (text) return <TextContent text={text} />;
+  if (text) return <ToolResultText text={text} />;
   return <pre className="tool-payload">{prettyJson(content)}</pre>;
 }
 
@@ -68,17 +138,20 @@ export async function ToolResultBlockComponent({ block }: { block: ToolResultBlo
   return (
     <details className="block tool-result-disclosure">
       <summary>
-        <span className="tool-result-summary-chip">
-          <span className="tool-result-arrow" aria-hidden="true">▸</span>
-          <span className="tool-result-summary-copy">
-            <span className="tool-result-summary-label">Tool output</span>
-            <span className="tool-result-summary-count">{countLabel}</span>
-          </span>
+        <span className="toolcall-head-inner">
+          <span className="toolcall-chevron tool-result-arrow" aria-hidden="true">▸</span>
+          <span className="toolcall-icon tool-output-icon" aria-hidden="true">↳</span>
+          <span className="toolcall-name">Tool output</span>
+          <span className="toolcall-sep">·</span>
+          <span className="toolcall-summary">{countLabel}</span>
         </span>
       </summary>
-      <div className="tool-result-panel">
-        <div className="tool-shell tool-result-shell">
-          <ToolResultContent content={block.content} />
+      <div className="toolcall-body tool-result-panel">
+        <div className="toolcall-section">
+          <div className="toolcall-section-label">Result</div>
+          <div className="tool-shell tool-result-shell">
+            <ToolResultContent content={block.content} />
+          </div>
         </div>
       </div>
     </details>

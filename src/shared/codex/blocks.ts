@@ -15,6 +15,10 @@ function asString(value: unknown): string | null {
   return typeof value === "string" ? value : null;
 }
 
+function asNumber(value: unknown): number | undefined {
+  return typeof value === "number" && Number.isFinite(value) ? value : undefined;
+}
+
 function parseJsonString(value: string): unknown {
   try {
     return JSON.parse(value);
@@ -122,6 +126,7 @@ function buildEvent(
     model?: string | null;
     subtype?: string;
     callId?: string;
+    usage?: unknown;
   },
 ): NormalizedEvent {
   const payload = asRecord(row.payload);
@@ -150,7 +155,42 @@ function buildEvent(
       entrypoint: "codex",
       subtype: config.subtype,
       model: config.model ?? transcript.model ?? undefined,
+      usage: config.usage,
     },
+  };
+}
+
+function tokenUsageFromRecord(value: unknown): RecordValue | null {
+  const record = asRecord(value);
+  if (!record) return null;
+
+  const usage = {
+    inputTokens: asNumber(record.input_tokens),
+    cachedInputTokens: asNumber(record.cached_input_tokens),
+    outputTokens: asNumber(record.output_tokens),
+    reasoningOutputTokens: asNumber(record.reasoning_output_tokens),
+    totalTokens: asNumber(record.total_tokens),
+  };
+
+  return Object.values(usage).some((entry) => entry !== undefined) ? usage : null;
+}
+
+function codexTokenUsage(payload: RecordValue): RecordValue | null {
+  const info = asRecord(payload.info);
+  if (!info) return null;
+
+  const last = tokenUsageFromRecord(info.last_token_usage);
+  const total = tokenUsageFromRecord(info.total_token_usage);
+  const modelContextWindow = asNumber(info.model_context_window);
+
+  if (!last && !total && modelContextWindow === undefined) {
+    return null;
+  }
+
+  return {
+    last,
+    total,
+    modelContextWindow,
   };
 }
 
@@ -304,6 +344,19 @@ function normalizeEventMessage(
       displayKind: "system",
       blocks: normalizeCodexContentBlocks(payload.message ?? "Codex reported an error."),
       subtype: eventType,
+    });
+  }
+
+  if (eventType === "token_count") {
+    const usage = codexTokenUsage(payload);
+    if (!usage) return null;
+
+    return buildEvent(row, seq, transcript, {
+      displayKind: "meta",
+      blocks: [{ kind: "text", text: "Codex token usage" }],
+      isMeta: true,
+      subtype: eventType,
+      usage,
     });
   }
 

@@ -9,8 +9,26 @@ interface D1Database {
 }
 
 interface R2ObjectBody {
+  key?: string;
+  customMetadata?: Record<string, string>;
   json<T = unknown>(): Promise<T>;
   text(): Promise<string>;
+}
+
+interface R2ListedObject {
+  key: string;
+  customMetadata?: Record<string, string>;
+}
+
+interface R2ListOptions {
+  cursor?: string;
+  prefix?: string;
+}
+
+interface R2ListResult {
+  objects: R2ListedObject[];
+  truncated: boolean;
+  cursor?: string;
 }
 
 interface R2PutOptions {
@@ -27,6 +45,7 @@ interface R2Bucket {
     options?: R2PutOptions,
   ): Promise<unknown>;
   get(key: string): Promise<R2ObjectBody | null>;
+  list(options?: R2ListOptions): Promise<R2ListResult>;
 }
 
 interface CloudflareEnv {
