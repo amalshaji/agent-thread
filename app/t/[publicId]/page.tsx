@@ -7,7 +7,9 @@ import { TranscriptClientEnhancements } from "@/components/transcript/client-enh
 import { TranscriptControls } from "@/components/transcript/transcript-controls";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { getAgentThreadEnv } from "@/lib/cloudflare";
+import { buildThreadOgImageUrl, buildThreadUrl, OG_IMAGE_SIZE, resolvePublicBaseUrl } from "@/lib/og";
 import { loadSessionByPublicId } from "@/lib/storage";
+import { getSourceInfo } from "@/lib/thread-source";
 import type { NormalizedSession } from "@/src/shared/contracts";
 import { Thread } from "@/components/transcript/thread";
 import { ImportCard } from "@/components/transcript/import-card";
@@ -28,28 +30,6 @@ type OutlineItem = {
   role: "user" | "assistant";
   displayRole: string;
 };
-
-type SourceInfo = {
-  label: string;
-  assistantLabel: string;
-  logoSrc: string;
-};
-
-function getSourceInfo(session: NormalizedSession): SourceInfo {
-  if (session.source === "codex") {
-    return {
-      label: "Codex",
-      assistantLabel: "Codex",
-      logoSrc: "/codex-color.svg",
-    };
-  }
-
-  return {
-    label: "Claude Code",
-    assistantLabel: "Claude",
-    logoSrc: "/claudecode-color.svg",
-  };
-}
 
 function getAssistantLabel(session: NormalizedSession): string {
   return getSourceInfo(session).assistantLabel;
@@ -127,7 +107,8 @@ async function loadThreadPageData(publicId: string) {
 
 export async function generateMetadata({ params }: ThreadPageProps): Promise<Metadata> {
   const { publicId } = await params;
-  const result = await loadThreadPageData(publicId);
+  const env = getAgentThreadEnv();
+  const result = await loadSessionByPublicId(env, publicId);
 
   if (!result) {
     return {
@@ -137,13 +118,35 @@ export async function generateMetadata({ params }: ThreadPageProps): Promise<Met
 
   const title = result.session.root.title ?? result.session.root.sessionId;
   const sourceInfo = getSourceInfo(result.session);
+  const description = `A shared ${sourceInfo.label} session transcript.`;
+  const publicBaseUrl = resolvePublicBaseUrl(env.PUBLIC_BASE_URL ?? env.AGENT_THREAD_SERVER_URL, DEFAULT_SERVER_URL);
+  const threadUrl = buildThreadUrl(publicBaseUrl, publicId);
+  const ogImageUrl = buildThreadOgImageUrl(publicBaseUrl, publicId);
+  const imageAlt = `${title} • agent thread`;
+
   return {
     title: `${title} • agent thread`,
-    description: `A shared ${sourceInfo.label} session transcript.`,
+    description,
     openGraph: {
       title,
-      description: `A shared ${sourceInfo.label} session transcript.`,
+      description,
       type: "article",
+      url: threadUrl,
+      siteName: "agent thread",
+      images: [
+        {
+          url: ogImageUrl,
+          width: OG_IMAGE_SIZE.width,
+          height: OG_IMAGE_SIZE.height,
+          alt: imageAlt,
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title,
+      description,
+      images: [ogImageUrl],
     },
   };
 }
