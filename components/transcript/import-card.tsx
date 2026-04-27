@@ -24,7 +24,10 @@ export function ImportCard({ publicId, serverUrl, defaultTarget = "claude" }: Im
 
   return (
     <div className="import-card">
-      <div className="import-card-heading">Continue where they left off</div>
+      <div className="import-card-copy">
+        <div className="import-card-heading">Continue where they left off</div>
+        <p className="import-card-subtitle">Import this session into your CLI and pick up the context locally.</p>
+      </div>
       <div
         role="tablist"
         aria-label="Import target"
@@ -46,7 +49,7 @@ export function ImportCard({ publicId, serverUrl, defaultTarget = "claude" }: Im
       </div>
       <div className="import-command">
         <code className="import-command-text">{command}</code>
-        <CopyButton value={command} label="Copy" copiedLabel="Copied" size="sm" />
+        <CopyButton value={command} label="Copy" copiedLabel="Copied" className="import-copy-button" size="sm" />
       </div>
     </div>
   );
