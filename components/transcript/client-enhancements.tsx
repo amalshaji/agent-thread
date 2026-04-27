@@ -17,6 +17,8 @@ function useCodeCollapse() {
     function restoreTarget(target: HTMLElement) {
       target.style.maxHeight = "";
       target.style.overflow = "";
+      target.style.overflowX = "";
+      target.style.overflowY = "";
       target.style.webkitMaskImage = "";
       target.style.maskImage = "";
 
@@ -61,11 +63,17 @@ function useCodeCollapse() {
         if (isCollapsed) {
           delete wrapper.dataset.collapsed;
           target.style.maxHeight = "";
+          target.style.overflow = "";
+          target.style.overflowX = "";
+          target.style.overflowY = "";
           target.style.webkitMaskImage = "";
           target.style.maskImage = "";
         } else {
           wrapper.dataset.collapsed = "";
           target.style.maxHeight = `${collapsedHeight}px`;
+          target.style.overflow = "";
+          target.style.overflowX = "auto";
+          target.style.overflowY = "hidden";
           target.style.webkitMaskImage = "linear-gradient(to bottom, #000 45%, transparent 100%)";
           target.style.maskImage = "linear-gradient(to bottom, #000 45%, transparent 100%)";
         }
@@ -82,7 +90,9 @@ function useCodeCollapse() {
       }
 
       target.style.maxHeight = `${collapsedHeight}px`;
-      target.style.overflow = "hidden";
+      target.style.overflow = "";
+      target.style.overflowX = "auto";
+      target.style.overflowY = "hidden";
       target.style.webkitMaskImage = "linear-gradient(to bottom, #000 45%, transparent 100%)";
       target.style.maskImage = "linear-gradient(to bottom, #000 45%, transparent 100%)";
       wrapper.dataset.collapsed = "";

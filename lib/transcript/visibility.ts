@@ -10,7 +10,7 @@ export function isPrimaryEvent(event: NormalizedEvent): boolean {
     return false;
   }
 
-  if (event.displayKind === "tool_use" || event.displayKind === "tool_result") {
+  if (event.displayKind === "thinking" || event.displayKind === "tool_use" || event.displayKind === "tool_result") {
     return true;
   }
 

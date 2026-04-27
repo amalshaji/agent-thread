@@ -118,6 +118,74 @@ test("hides empty thinking pre blocks and renders patch diffs", async () => {
   expect(html).toContain("data-diff");
 });
 
+test("renders thinking events in the primary conversation", async () => {
+  const session: NormalizedSession = {
+    schemaVersion: 1,
+    source: "codex",
+    importedAt: "2026-03-27T00:00:00.000Z",
+    root: {
+      sessionId: "session-thinking",
+      projectKey: "project-thinking",
+      projectPath: "/tmp/project",
+      title: "Thinking Test",
+      cwd: "/tmp/project",
+      gitBranch: "main",
+      startedAt: "2026-03-27T00:00:00.000Z",
+    },
+    threads: [
+      {
+        id: "thread-thinking",
+        kind: "main",
+        sessionId: "session-thinking",
+        agentId: null,
+        sourceFileName: "session-thinking.jsonl",
+        sourceRelativePath: "project-thinking/session-thinking.jsonl",
+        cwd: "/tmp/project",
+        gitBranch: "main",
+        startedAt: "2026-03-27T00:00:00.000Z",
+        rootEventIds: ["thinking-1", "assistant-1"],
+        events: [
+          {
+            id: "thinking-1",
+            parentId: null,
+            seq: 0,
+            timestamp: "2026-03-27T00:00:01.000Z",
+            topLevelType: "response_item",
+            role: "assistant",
+            displayKind: "thinking",
+            blocks: [{ kind: "thinking", text: "I should inspect the parser first." }],
+            textPreview: "I should inspect the parser first.",
+            flags: { isMeta: false, isSidechain: false },
+            refs: {},
+            meta: {},
+          },
+          {
+            id: "assistant-1",
+            parentId: "thinking-1",
+            seq: 1,
+            timestamp: "2026-03-27T00:00:02.000Z",
+            topLevelType: "response_item",
+            role: "assistant",
+            displayKind: "message",
+            blocks: [{ kind: "text", text: "Done." }],
+            textPreview: "Done.",
+            flags: { isMeta: false, isSidechain: false },
+            refs: {},
+            meta: {},
+          },
+        ],
+      },
+    ],
+    stats: { threadCount: 1, eventCount: 2, messageCount: 2, sidechainCount: 0 },
+  };
+
+  const html = await renderThread(mainThread(session));
+
+  expect(html).toContain('<details class="block thinking">');
+  expect(html).toContain("I should inspect the parser first.");
+  expect(html).not.toContain("hidden activity");
+});
+
 test("renders markdown for user and assistant messages", async () => {
   const session: NormalizedSession = {
     schemaVersion: 1,

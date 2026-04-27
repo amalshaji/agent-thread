@@ -280,12 +280,24 @@
     gap: 12px;
   }
 
+  .import-card-copy {
+    display: grid;
+    gap: 4px;
+  }
+
   .import-card-heading {
     font-size: 11px;
     font-weight: 600;
     color: var(--faint);
     text-transform: uppercase;
     letter-spacing: 0.07em;
+  }
+
+  .import-card-subtitle {
+    margin: 0;
+    color: var(--muted);
+    font-size: 12.5px;
+    line-height: 1.45;
   }
 
   .import-card-tabs {
@@ -340,12 +352,15 @@
 
   .import-command-text {
     flex: 1;
+    min-width: 0;
     font-family: var(--font-mono);
     font-size: 12px;
     color: var(--foreground);
     white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
   }
 
   /* Responsive */
@@ -976,6 +991,20 @@
     background: transparent;
   }
 
+  .tool-code-payload {
+    overflow-x: auto;
+    overflow-y: auto;
+    white-space: pre;
+    overflow-wrap: normal;
+    word-break: normal;
+  }
+
+  .tool-code-payload code {
+    display: block;
+    min-width: max-content;
+    white-space: pre;
+  }
+
   .bubble-assistant .tool-payload,
   .bubble-assistant .diff-view {
     background: var(--surface-1);
@@ -1063,6 +1092,7 @@
 
   .block.markdown pre.code-block-plain code {
     display: block;
+    min-width: max-content;
     padding: 0;
     background: transparent;
     color: inherit;
@@ -1330,6 +1360,18 @@
 
   details.block.thinking[open] .thinking-chevron {
     transform: rotate(90deg);
+  }
+
+  details.block.thinking .thinking-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface);
+    color: var(--ink-soft);
   }
 
   details.block.thinking .tool-payload {
@@ -2016,13 +2058,13 @@
 }
 
 .search-match {
-  outline: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
-  outline-offset: 4px;
+  border-radius: 12px;
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 42%, transparent);
 }
 
 .search-current {
-  outline: 2px solid var(--accent);
-  outline-offset: 5px;
+  border-radius: 12px;
+  box-shadow: inset 0 0 0 2px var(--accent);
 }
 
 html[data-thinking="hidden"] details.block.thinking {
@@ -2339,6 +2381,15 @@ html[data-thinking="hidden"] details.block.thinking {
 }
 
 @media (max-width: 760px) {
+  .import-copy-button {
+    width: 28px;
+    padding-inline: 0;
+  }
+
+  .import-copy-button span {
+    display: none;
+  }
+
   .search-panel {
     grid-template-columns: auto minmax(0, 1fr) auto;
   }

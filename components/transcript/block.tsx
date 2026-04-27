@@ -1,4 +1,5 @@
 import type { ContentBlock } from "@/src/shared/contracts";
+import { Brain } from "lucide-react";
 import { ImageAttachment } from "./image-attachment";
 import { TextContent } from "./text-content";
 import { ToolUseBlockComponent } from "./tool-use-block";
@@ -23,6 +24,9 @@ export async function Block({ block, context = {} }: { block: ContentBlock; cont
         <details className="block thinking">
           <summary>
             <span className="thinking-chevron">▶</span>
+            <span className="thinking-icon" aria-hidden="true">
+              <Brain className="size-3.5" />
+            </span>
             Thinking
           </summary>
           <pre className="tool-payload">{block.text}</pre>

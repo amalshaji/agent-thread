@@ -173,7 +173,7 @@ export default async function ThreadPage({ params }: ThreadPageProps) {
   return (
     <>
       <AppHeader publicId={publicId} />
-      <div className="chat-shell" data-transcript>
+      <div key={publicId} className="chat-shell" data-transcript>
         <aside className="chat-side">
           <ScrollArea className="chat-outline">
             <nav aria-label="Conversation outline">
@@ -268,7 +268,7 @@ export default async function ThreadPage({ params }: ThreadPageProps) {
           </div>
         </main>
       </div>
-      <TranscriptClientEnhancements />
+      <TranscriptClientEnhancements key={publicId} />
     </>
   );
 }

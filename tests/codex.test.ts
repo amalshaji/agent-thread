@@ -87,6 +87,14 @@ describe("Codex discovery", () => {
           },
         }),
         JSON.stringify({
+          timestamp: "2026-04-25T19:08:33.500Z",
+          type: "response_item",
+          payload: {
+            type: "reasoning",
+            summary: [{ type: "summary_text", text: "Need to check the local transcript shape." }],
+          },
+        }),
+        JSON.stringify({
           timestamp: "2026-04-25T19:08:34.100Z",
           type: "response_item",
           payload: {
@@ -157,14 +165,18 @@ describe("Codex discovery", () => {
     const events = upload.normalized.threads[0]!.events;
     expect(events.some((event) => event.textPreview?.includes("Hidden developer setup"))).toBe(false);
     expect(events.some((event) => event.textPreview?.includes("AGENTS.md"))).toBe(false);
-    expect(events.map((event) => event.displayKind)).toEqual(["message", "message", "tool_use", "tool_result", "meta"]);
+    expect(events.map((event) => event.displayKind)).toEqual(["message", "message", "thinking", "tool_use", "tool_result", "meta"]);
     expect(events[2]?.blocks[0]).toMatchObject({
+      kind: "thinking",
+      text: "Need to check the local transcript shape.",
+    });
+    expect(events[3]?.blocks[0]).toMatchObject({
       kind: "tool_use",
       id: "call_123",
       name: "exec_command",
       input: { cmd: "pwd" },
     });
-    expect(events[4]?.meta).toMatchObject({
+    expect(events[5]?.meta).toMatchObject({
       entrypoint: "codex",
       subtype: "token_count",
       usage: {
@@ -178,8 +190,8 @@ describe("Codex discovery", () => {
         modelContextWindow: 258400,
       },
     });
-    expect(JSON.stringify(events[4]?.meta.usage)).not.toContain("rate_limits");
-    expect(JSON.stringify(events[4]?.meta.usage)).not.toContain("credits");
+    expect(JSON.stringify(events[5]?.meta.usage)).not.toContain("rate_limits");
+    expect(JSON.stringify(events[5]?.meta.usage)).not.toContain("credits");
 
     await rm(sandbox, { recursive: true, force: true });
   });
