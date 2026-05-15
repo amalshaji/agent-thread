@@ -6,6 +6,7 @@ import type { NormalizedSession, NormalizedThread } from "../src/shared/contract
 import { resetDiffBudget } from "../lib/transcript/diff";
 import { getToolMeta } from "../lib/transcript/tool-inline";
 import { Thread } from "../components/transcript/thread";
+import { ImportCard } from "../components/transcript/import-card";
 
 async function renderThread(thread: NormalizedThread, showHeader = false): Promise<string> {
   resetDiffBudget();
@@ -28,6 +29,30 @@ function mainThread(session: NormalizedSession): NormalizedThread {
   if (!t) throw new Error("no thread");
   return t;
 }
+
+test("renders a source-locked import command card", async () => {
+  const stream = await renderToReadableStream(
+    createElement(ImportCard, {
+      publicId: "abc123",
+      serverUrl: "https://agent-thread.com",
+      source: "codex",
+    }),
+  );
+  await stream.allReady;
+  const reader = stream.getReader();
+  const chunks: Uint8Array[] = [];
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+  }
+  const html = Buffer.concat(chunks).toString("utf8");
+
+  expect(html).toContain("Import into");
+  expect(html).toContain("Codex");
+  expect(html).toContain("bunx agent-thread --import https://agent-thread.com/t/abc123");
+  expect(html).not.toContain("--to");
+});
 
 test("summarizes exec_command tool inputs with a command preview", () => {
   const idealCommand = "find /Users/amalshaji/.codex/sqlite -maxdepth 2 -type f -print";

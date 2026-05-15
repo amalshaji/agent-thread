@@ -1,13 +1,17 @@
 import { describe, expect, test } from "bun:test";
+import { execFile } from "node:child_process";
+import { mkdir, mkdtemp, readFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { promisify } from "node:util";
 
 import { parseImportRef } from "../src/cli/import";
 import type { NormalizedSession, SessionExportBundle } from "../src/shared/contracts";
-import { importSessionBundle, normalizedToClaudeRawFiles, normalizedToCodexRawFiles } from "../src/shared/imports";
+import { loadSessionExportByPublicId } from "../lib/storage";
+import { importSessionBundle } from "../src/shared/imports";
+import { encodeClaudeProjectPath } from "../src/shared/claude";
 
-function hasType(value: unknown, type: string): boolean {
-  return Boolean(value && typeof value === "object" && "type" in value && (value as { type?: unknown }).type === type);
-}
+const execFileAsync = promisify(execFile);
 
 function sampleSession(source: "claude-code" | "codex" = "claude-code"): NormalizedSession {
   return {
@@ -15,8 +19,8 @@ function sampleSession(source: "claude-code" | "codex" = "claude-code"): Normali
     source,
     importedAt: "2026-04-26T00:00:00.000Z",
     root: {
-      sessionId: "session-1",
-      projectKey: "project",
+      sessionId: source === "codex" ? "codex-session-1" : "claude-session-1",
+      projectKey: "remote-project",
       projectPath: "/remote/workspace",
       title: "Import test",
       cwd: "/remote/workspace",
@@ -25,16 +29,16 @@ function sampleSession(source: "claude-code" | "codex" = "claude-code"): Normali
     },
     threads: [
       {
-        id: "session-1",
+        id: source === "codex" ? "codex-session-1" : "claude-session-1",
         kind: "main",
-        sessionId: "session-1",
+        sessionId: source === "codex" ? "codex-session-1" : "claude-session-1",
         agentId: null,
-        sourceFileName: "session-1.jsonl",
-        sourceRelativePath: "project/session-1.jsonl",
+        sourceFileName: source === "codex" ? "rollout-codex-session-1.jsonl" : "claude-session-1.jsonl",
+        sourceRelativePath: source === "codex" ? "sessions/2026/04/26/rollout-codex-session-1.jsonl" : "remote-project/claude-session-1.jsonl",
         cwd: "/remote/workspace",
         gitBranch: "main",
         startedAt: "2026-04-26T10:11:12.000Z",
-        rootEventIds: ["user-1", "assistant-1", "thinking-1", "tool-1", "result-1"],
+        rootEventIds: ["user-1"],
         events: [
           {
             id: "user-1",
@@ -44,73 +48,107 @@ function sampleSession(source: "claude-code" | "codex" = "claude-code"): Normali
             topLevelType: "user",
             role: "user",
             displayKind: "message",
-            blocks: [{ kind: "text", text: "hello" }],
-            textPreview: "hello",
+            blocks: [{ kind: "text", text: "hello import" }],
+            textPreview: "hello import",
             flags: { isMeta: false, isSidechain: false },
             refs: {},
-            meta: {},
-          },
-          {
-            id: "assistant-1",
-            parentId: "user-1",
-            seq: 1,
-            timestamp: "2026-04-26T10:11:13.000Z",
-            topLevelType: "assistant",
-            role: "assistant",
-            displayKind: "message",
-            blocks: [{ kind: "text", text: "hi" }],
-            textPreview: "hi",
-            flags: { isMeta: false, isSidechain: false },
-            refs: {},
-            meta: { model: "gpt-test" },
-          },
-          {
-            id: "thinking-1",
-            parentId: "assistant-1",
-            seq: 2,
-            timestamp: "2026-04-26T10:11:14.000Z",
-            topLevelType: "assistant",
-            role: "assistant",
-            displayKind: "thinking",
-            blocks: [{ kind: "thinking", text: "reasoning summary" }],
-            textPreview: "reasoning summary",
-            flags: { isMeta: false, isSidechain: false },
-            refs: {},
-            meta: {},
-          },
-          {
-            id: "tool-1",
-            parentId: "assistant-1",
-            seq: 3,
-            timestamp: "2026-04-26T10:11:15.000Z",
-            topLevelType: "assistant",
-            role: "assistant",
-            displayKind: "tool_use",
-            blocks: [{ kind: "tool_use", id: "call-1", name: "exec_command", input: { cmd: "pwd" } }],
-            textPreview: null,
-            flags: { isMeta: false, isSidechain: false },
-            refs: {},
-            meta: {},
-          },
-          {
-            id: "result-1",
-            parentId: "tool-1",
-            seq: 4,
-            timestamp: "2026-04-26T10:11:16.000Z",
-            topLevelType: "assistant",
-            role: "assistant",
-            displayKind: "tool_result",
-            blocks: [{ kind: "tool_result", toolUseId: "call-1", content: "output" }],
-            textPreview: "output",
-            flags: { isMeta: false, isSidechain: false },
-            refs: {},
-            meta: {},
+            meta: { model: source === "codex" ? "gpt-5.5" : undefined },
           },
         ],
       },
     ],
-    stats: { threadCount: 1, eventCount: 5, messageCount: 5, sidechainCount: 0 },
+    stats: { threadCount: 1, eventCount: 1, messageCount: 1, sidechainCount: 0 },
   };
+}
+
+function claudeBundle(): SessionExportBundle {
+  return {
+    schemaVersion: 1,
+    publicId: "claude-public",
+    source: "claude-code",
+    normalized: sampleSession("claude-code"),
+    rawFiles: [
+      {
+        threadId: "claude-session-1",
+        kind: "main",
+        fileName: "claude-session-1.jsonl",
+        relativePath: "-remote-workspace/claude-session-1.jsonl",
+        content: JSON.stringify({ type: "user", cwd: "/remote/workspace", sessionId: "claude-session-1" }) + "\n",
+      },
+    ],
+  };
+}
+
+function codexBundle(): SessionExportBundle {
+  return {
+    schemaVersion: 1,
+    publicId: "codex-public",
+    source: "codex",
+    normalized: sampleSession("codex"),
+    rawFiles: [
+      {
+        threadId: "codex-session-1",
+        kind: "main",
+        fileName: "rollout-codex-session-1.jsonl",
+        relativePath: "sessions/2026/04/26/rollout-codex-session-1.jsonl",
+        content:
+          [
+            JSON.stringify({
+              timestamp: "2026-04-26T10:11:12.000Z",
+              type: "session_meta",
+              payload: { id: "codex-session-1", cwd: "/remote/workspace", source: "cli", model_provider: "openai" },
+            }),
+            JSON.stringify({
+              timestamp: "2026-04-26T10:11:13.000Z",
+              type: "turn_context",
+              payload: { cwd: "/remote/workspace", model: "gpt-5.5" },
+            }),
+          ].join("\n") + "\n",
+      },
+    ],
+  };
+}
+
+async function createCodexStateDb(codexHome: string): Promise<string> {
+  await mkdir(codexHome, { recursive: true });
+  const dbPath = join(codexHome, "state_5.sqlite");
+
+  await execFileAsync("sqlite3", [
+    dbPath,
+    `
+      CREATE TABLE threads (
+        id TEXT PRIMARY KEY,
+        rollout_path TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        source TEXT NOT NULL,
+        model_provider TEXT NOT NULL,
+        cwd TEXT NOT NULL,
+        title TEXT NOT NULL,
+        sandbox_policy TEXT NOT NULL,
+        approval_mode TEXT NOT NULL,
+        tokens_used INTEGER NOT NULL DEFAULT 0,
+        has_user_event INTEGER NOT NULL DEFAULT 0,
+        archived INTEGER NOT NULL DEFAULT 0,
+        archived_at INTEGER,
+        git_sha TEXT,
+        git_branch TEXT,
+        git_origin_url TEXT,
+        cli_version TEXT NOT NULL DEFAULT '',
+        first_user_message TEXT NOT NULL DEFAULT '',
+        agent_nickname TEXT,
+        agent_role TEXT,
+        memory_mode TEXT NOT NULL DEFAULT 'enabled',
+        model TEXT,
+        reasoning_effort TEXT,
+        agent_path TEXT,
+        created_at_ms INTEGER,
+        updated_at_ms INTEGER
+      );
+    `,
+  ]);
+
+  return dbPath;
 }
 
 describe("import ref parsing", () => {
@@ -126,330 +164,172 @@ describe("import ref parsing", () => {
   });
 });
 
-function codexSession(): NormalizedSession {
-  // Simulates a Codex session where all parentId values are null (Codex normalizer behaviour)
-  return {
-    ...sampleSession("codex"),
-    root: { ...sampleSession("codex").root, sessionId: "codex-session-1" },
-    threads: [
-      {
-        id: "codex-session-1",
-        kind: "main",
-        sessionId: "codex-session-1",
-        agentId: null,
-        sourceFileName: "rollout-codex-session-1.jsonl",
-        sourceRelativePath: "2026/04/26/rollout-codex-session-1.jsonl",
-        cwd: "/remote/workspace",
-        gitBranch: "main",
-        startedAt: "2026-04-26T10:11:12.000Z",
-        rootEventIds: ["e1"],
-        events: [
-          {
-            id: "e1",
-            parentId: null,
-            seq: 0,
-            timestamp: "2026-04-26T10:11:12.000Z",
-            topLevelType: "user",
-            role: "user",
-            displayKind: "message",
-            blocks: [{ kind: "text", text: "hello from codex" }],
-            textPreview: "hello from codex",
-            flags: { isMeta: false, isSidechain: false },
-            refs: {},
-            meta: {},
-          },
-          {
-            id: "e2",
-            parentId: null,
-            seq: 1,
-            timestamp: "2026-04-26T10:11:13.000Z",
-            topLevelType: "assistant",
-            role: "assistant",
-            displayKind: "message",
-            blocks: [{ kind: "text", text: "hi from assistant" }],
-            textPreview: "hi from assistant",
-            flags: { isMeta: false, isSidechain: false },
-            refs: {},
-            meta: { model: "gpt-5.5" },
-          },
-          {
-            id: "e3",
-            parentId: null,
-            seq: 2,
-            timestamp: "2026-04-26T10:11:14.000Z",
-            topLevelType: "assistant",
-            role: "assistant",
-            displayKind: "tool_use",
-            blocks: [{ kind: "tool_use", id: "call-1", name: "exec_command", input: { cmd: "pwd" } }],
-            textPreview: null,
-            flags: { isMeta: false, isSidechain: false },
-            refs: {},
-            meta: {},
-          },
-          {
-            id: "e4",
-            parentId: null,
-            seq: 3,
-            timestamp: "2026-04-26T10:11:15.000Z",
-            topLevelType: "assistant",
-            role: "assistant",
-            displayKind: "tool_result",
-            blocks: [{ kind: "tool_result", toolUseId: "call-1", content: "/remote/workspace" }],
-            textPreview: "/remote/workspace",
-            flags: { isMeta: false, isSidechain: false },
-            refs: {},
-            meta: {},
-          },
-          {
-            id: "e5",
-            parentId: null,
-            seq: 4,
-            timestamp: "2026-04-26T10:11:16.000Z",
-            topLevelType: "assistant",
-            role: "assistant",
-            displayKind: "message",
-            blocks: [{ kind: "text", text: "done" }],
-            textPreview: "done",
-            flags: { isMeta: false, isSidechain: false },
-            refs: {},
-            meta: { model: "claude-sonnet-4-6" },
-          },
-        ],
+describe("same-app imports", () => {
+  test("loads export bundles with raw files from storage", async () => {
+    const bundle = claudeBundle();
+    const db = {
+      prepare: () => ({
+        bind: () => ({
+          first: async () => ({
+            id: "upload-1",
+            public_id: bundle.publicId,
+            source: bundle.source,
+            session_id: bundle.normalized.root.sessionId,
+            project_key: bundle.normalized.root.projectKey,
+            title: bundle.normalized.root.title,
+            project_path: bundle.normalized.root.projectPath,
+            raw_prefix: "raw/claude-code/upload-1",
+            normalized_key: "normalized/upload-1.json",
+            event_count: bundle.normalized.stats.eventCount,
+            thread_count: bundle.normalized.stats.threadCount,
+            created_at: "2026-04-26T00:00:00.000Z",
+          }),
+        }),
+      }),
+    };
+    const bucket = {
+      get: async (key: string) => {
+        if (key === "normalized/upload-1.json") {
+          return { json: async () => bundle.normalized };
+        }
+        if (key === "raw/claude-code/upload-1/claude-session-1.jsonl") {
+          return {
+            text: async () => bundle.rawFiles[0]!.content,
+            customMetadata: {
+              threadId: bundle.rawFiles[0]!.threadId,
+              kind: bundle.rawFiles[0]!.kind,
+              relativePath: bundle.rawFiles[0]!.relativePath,
+            },
+          };
+        }
+        return null;
       },
-    ],
-    stats: { threadCount: 1, eventCount: 5, messageCount: 3, sidechainCount: 0 },
-  };
-}
-
-function imageSession(source: "claude-code" | "codex", imageValue: unknown): NormalizedSession {
-  const session = sampleSession(source);
-  const firstEvent = session.threads[0]!.events[0]!;
-  firstEvent.blocks = [...firstEvent.blocks, { kind: "raw", value: imageValue }];
-  return session;
-}
-
-describe("normalizedToClaudeRawFiles (Codex -> Claude transform)", () => {
-  test("produces one JSONL file per thread", () => {
-    const files = normalizedToClaudeRawFiles(codexSession(), "/local/workspace");
-    expect(files).toHaveLength(1);
-    expect(files[0]!.fileName).toBe("codex-session-1.jsonl");
-  });
-
-  test("all records are chained sequentially (parentUuid non-null after first)", () => {
-    const files = normalizedToClaudeRawFiles(codexSession(), "/local/workspace");
-    const records = files[0]!.content
-      .split("\n")
-      .filter(Boolean)
-      .map((l) => JSON.parse(l));
-
-    expect(records.length).toBeGreaterThan(1);
-    expect(records[0].parentUuid).toBeNull();
-
-    for (let i = 1; i < records.length; i++) {
-      expect(records[i].parentUuid).toBe(records[i - 1].uuid);
-    }
-  });
-
-  test("user plain-text content is a string not an array (matches native Claude format)", () => {
-    const files = normalizedToClaudeRawFiles(codexSession(), "/local/workspace");
-    const records = files[0]!.content
-      .split("\n")
-      .filter(Boolean)
-      .map((l) => JSON.parse(l));
-
-    const userRecord = records.find((r: { type: string }) => r.type === "user");
-    expect(typeof userRecord.message.content).toBe("string");
-    expect(userRecord.message.content).toBe("hello from codex");
-  });
-
-  test("assistant records have message.type='message' (matches native Claude format)", () => {
-    const files = normalizedToClaudeRawFiles(codexSession(), "/local/workspace");
-    const records = files[0]!.content
-      .split("\n")
-      .filter(Boolean)
-      .map((l) => JSON.parse(l));
-
-    const assistantRecords = records.filter((r: { type: string }) => r.type === "assistant");
-    expect(assistantRecords.length).toBeGreaterThan(0);
-    for (const r of assistantRecords) {
-      expect(r.message.type).toBe("message");
-    }
-  });
-
-  test("non-Claude model names are stripped to null", () => {
-    const files = normalizedToClaudeRawFiles(codexSession(), "/local/workspace");
-    const records = files[0]!.content
-      .split("\n")
-      .filter(Boolean)
-      .map((l) => JSON.parse(l));
-
-    const assistantWithGpt = records.find(
-      (r: { type: string; message: { model?: string } }) => r.type === "assistant" && r.message.model === "gpt-5.5",
-    );
-    expect(assistantWithGpt).toBeUndefined();
-
-    const withModel = records.find(
-      (r: { type: string; message: { model?: string } }) => r.type === "assistant" && r.message.model === "claude-sonnet-4-6",
-    );
-    expect(withModel?.message.model).toBe("claude-sonnet-4-6");
-  });
-
-  test("tool_result events emit type='user' records (native Claude convention)", () => {
-    const files = normalizedToClaudeRawFiles(codexSession(), "/local/workspace");
-    const records = files[0]!.content
-      .split("\n")
-      .filter(Boolean)
-      .map((l) => JSON.parse(l));
-
-    const toolResultRecord = records.find(
-      (r: { type: string; message?: { content?: unknown[] } }) =>
-        r.type === "user" && Array.isArray(r.message?.content) && r.message.content.some((block) => hasType(block, "tool_result")),
-    );
-    expect(toolResultRecord).toBeDefined();
-  });
-
-  test("no consecutive same-role records (Claude API constraint)", () => {
-    const files = normalizedToClaudeRawFiles(codexSession(), "/local/workspace");
-    const records = files[0]!.content
-      .split("\n")
-      .filter(Boolean)
-      .map((l) => JSON.parse(l));
-
-    for (let i = 1; i < records.length; i++) {
-      const prev = records[i - 1].type;
-      const curr = records[i].type;
-      if (prev === "assistant" || prev === "user") {
-        expect(curr).not.toBe(prev);
-      }
-    }
-  });
-
-  test("text and tool_use from same turn are merged into one assistant record", () => {
-    const files = normalizedToClaudeRawFiles(codexSession(), "/local/workspace");
-    const records = files[0]!.content
-      .split("\n")
-      .filter(Boolean)
-      .map((l) => JSON.parse(l));
-
-    const assistantWithBoth = records.find(
-      (r: { type: string; message?: { content?: unknown[] } }) =>
-        r.type === "assistant" &&
-        Array.isArray(r.message?.content) &&
-        r.message.content.some((block) => hasType(block, "text")) &&
-        r.message.content.some((block) => hasType(block, "tool_use")),
-    );
-    expect(assistantWithBoth).toBeDefined();
-  });
-
-  test("all uuid and parentUuid values are valid UUID4 format", () => {
-    const uuid4Re = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-    const files = normalizedToClaudeRawFiles(codexSession(), "/local/workspace");
-    const records = files[0]!.content
-      .split("\n")
-      .filter(Boolean)
-      .map((l) => JSON.parse(l));
-
-    for (const r of records) {
-      expect(uuid4Re.test(r.uuid)).toBe(true);
-      if (r.parentUuid !== null) {
-        expect(uuid4Re.test(r.parentUuid)).toBe(true);
-      }
-    }
-  });
-
-  test("workspace cwd is written into every record", () => {
-    const files = normalizedToClaudeRawFiles(codexSession(), "/local/workspace");
-    const records = files[0]!.content
-      .split("\n")
-      .filter(Boolean)
-      .map((l) => JSON.parse(l));
-
-    for (const r of records) {
-      expect(r.cwd).toBe("/local/workspace");
-    }
-  });
-});
-
-describe("import transforms", () => {
-  test("converts normalized Claude events into Codex JSONL records", () => {
-    const files = normalizedToCodexRawFiles(sampleSession("claude-code"), "/local/workspace");
-
-    expect(files).toHaveLength(1);
-    expect(files[0]!.relativePath).toBe("sessions/2026/04/26/rollout-2026-04-26T10-11-12-session-1.jsonl");
-    expect(files[0]!.content).toContain('"type":"session_meta"');
-    expect(files[0]!.content).toContain('"cwd":"/local/workspace"');
-    expect(files[0]!.content).toContain('"type":"reasoning"');
-    expect(files[0]!.content).toContain('"type":"function_call"');
-    expect(files[0]!.content).toContain('"type":"function_call_output"');
-  });
-
-  test("converts Claude image blocks into Codex input images", () => {
-    const files = normalizedToCodexRawFiles(
-      imageSession("claude-code", {
-        type: "image",
-        source: { type: "base64", media_type: "image/png", data: "abc123" },
+      list: async () => ({
+        objects: [{ key: "raw/claude-code/upload-1/claude-session-1.jsonl" }],
+        truncated: false,
       }),
-      "/local/workspace",
-    );
-    const records = files[0]!.content
-      .split("\n")
-      .filter(Boolean)
-      .map((l) => JSON.parse(l));
-    const message = records.find((r: { payload?: { type?: string; role?: string } }) => r.payload?.type === "message" && r.payload.role === "user");
-
-    expect(message.payload.content).toContainEqual({
-      type: "input_image",
-      image_url: "data:image/png;base64,abc123",
-    });
-  });
-
-  test("converts Codex data-url image blocks into Claude image blocks", () => {
-    const files = normalizedToClaudeRawFiles(
-      imageSession("codex", {
-        type: "image",
-        source: { url: "data:image/png;base64,abc123", media_type: "image/png" },
-      }),
-      "/local/workspace",
-    );
-    const records = files[0]!.content
-      .split("\n")
-      .filter(Boolean)
-      .map((l) => JSON.parse(l));
-    const user = records.find((r: { type: string }) => r.type === "user");
-
-    expect(user.message.content).toContainEqual({
-      type: "image",
-      source: { type: "base64", media_type: "image/png", data: "abc123" },
-    });
-  });
-
-  test("dry-runs a same-source Claude import into the requested workspace", async () => {
-    const bundle: SessionExportBundle = {
-      schemaVersion: 1,
-      publicId: "abc123",
-      source: "claude-code",
-      normalized: sampleSession("claude-code"),
-      rawFiles: [
-        {
-          threadId: "session-1",
-          kind: "main",
-          fileName: "session-1.jsonl",
-          relativePath: "-remote-workspace/session-1.jsonl",
-          content: JSON.stringify({ type: "user", cwd: "/remote/workspace", sessionId: "session-1" }) + "\n",
-        },
-      ],
     };
 
-    const result = await importSessionBundle(bundle, {
-      target: "claude",
-      workspace: "/local/workspace",
-      claudeHome: "/tmp/agent-thread-test-claude",
-      dryRun: true,
-    });
+    const result = await loadSessionExportByPublicId(
+      { DB: db as unknown as D1Database, SESSIONS_BUCKET: bucket as unknown as R2Bucket },
+      bundle.publicId,
+    );
 
-    expect(result.transformed).toBe(false);
-    expect(result.dryRun).toBe(true);
-    expect(result.files[0]!.path).toBe(join("/tmp/agent-thread-test-claude", "projects", "-local-workspace", "session-1.jsonl"));
-    expect(result.files[0]!.written).toBe(false);
+    expect(result?.schemaVersion).toBe(1);
+    expect(result?.source).toBe("claude-code");
+    expect(result?.rawFiles).toEqual(bundle.rawFiles);
+  });
+
+  test("imports a Claude export into the requested Claude workspace", async () => {
+    const sandbox = await mkdtemp(join(tmpdir(), "agent-thread-import-"));
+
+    try {
+      const claudeHome = join(sandbox, ".claude");
+      const workspace = join(sandbox, "workspace", "claude-target");
+      const result = await importSessionBundle(claudeBundle(), {
+        workspace,
+        claudeHome,
+      });
+
+      const targetPath = join(claudeHome, "projects", encodeClaudeProjectPath(workspace), "claude-session-1.jsonl");
+      expect(result.target).toBe("claude");
+      expect(result.files[0]?.path).toBe(targetPath);
+      expect(result.files[0]?.written).toBe(true);
+      expect(await readFile(targetPath, "utf8")).toContain(`"cwd":"${workspace}"`);
+    } finally {
+      await rm(sandbox, { recursive: true, force: true });
+    }
+  });
+
+  test("dry-runs a Codex export into the Codex sessions path", async () => {
+    const sandbox = await mkdtemp(join(tmpdir(), "agent-thread-import-"));
+
+    try {
+      const codexHome = join(sandbox, ".codex");
+      const workspace = join(sandbox, "workspace", "codex-target");
+      const result = await importSessionBundle(codexBundle(), {
+        workspace,
+        codexHome,
+        dryRun: true,
+      });
+
+      expect(result.target).toBe("codex");
+      expect(result.dryRun).toBe(true);
+      expect(result.files[0]?.path).toBe(join(codexHome, "sessions", "2026", "04", "26", "rollout-codex-session-1.jsonl"));
+      expect(result.files[0]?.written).toBe(false);
+    } finally {
+      await rm(sandbox, { recursive: true, force: true });
+    }
+  });
+
+  test("rejects overwrites unless force is passed", async () => {
+    const sandbox = await mkdtemp(join(tmpdir(), "agent-thread-import-"));
+
+    try {
+      const claudeHome = join(sandbox, ".claude");
+      const workspace = join(sandbox, "workspace", "claude-target");
+      await importSessionBundle(claudeBundle(), { workspace, claudeHome });
+
+      await expect(importSessionBundle(claudeBundle(), { workspace, claudeHome })).rejects.toThrow("Import would overwrite 1 existing file.");
+
+      const dryRun = await importSessionBundle(claudeBundle(), { workspace, claudeHome, dryRun: true });
+      expect(dryRun.files[0]?.existed).toBe(true);
+      expect(dryRun.files[0]?.written).toBe(false);
+
+      const forced = await importSessionBundle(claudeBundle(), { workspace, claudeHome, force: true });
+      expect(forced.files[0]?.written).toBe(true);
+    } finally {
+      await rm(sandbox, { recursive: true, force: true });
+    }
+  });
+
+  test("updates the Codex index when state_5.sqlite exists", async () => {
+    const sandbox = await mkdtemp(join(tmpdir(), "agent-thread-import-"));
+
+    try {
+      const codexHome = join(sandbox, ".codex");
+      const stateDb = await createCodexStateDb(codexHome);
+      const workspace = join(sandbox, "workspace", "codex-target");
+      const result = await importSessionBundle(codexBundle(), {
+        workspace,
+        codexHome,
+      });
+
+      expect(result.warnings).toEqual([]);
+      expect(await readFile(result.files[0]!.path, "utf8")).toContain(`"cwd":"${workspace}"`);
+
+      const { stdout } = await execFileAsync("sqlite3", [
+        stateDb,
+        "SELECT id, cwd, title, source, first_user_message, has_user_event FROM threads WHERE id = 'codex-session-1';",
+      ]);
+      expect(stdout.trim().split("|")).toEqual([
+        "codex-session-1",
+        workspace,
+        "Import test",
+        "cli",
+        "hello import",
+        "1",
+      ]);
+    } finally {
+      await rm(sandbox, { recursive: true, force: true });
+    }
+  });
+
+  test("warns instead of failing when Codex state DB is absent", async () => {
+    const sandbox = await mkdtemp(join(tmpdir(), "agent-thread-import-"));
+
+    try {
+      const codexHome = join(sandbox, ".codex");
+      const workspace = join(sandbox, "workspace", "codex-target");
+      const result = await importSessionBundle(codexBundle(), {
+        workspace,
+        codexHome,
+      });
+
+      expect(result.warnings[0]).toContain("Codex index not updated");
+      expect(result.files[0]?.written).toBe(true);
+    } finally {
+      await rm(sandbox, { recursive: true, force: true });
+    }
   });
 });

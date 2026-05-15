@@ -169,6 +169,8 @@ export default async function ThreadPage({ params }: ThreadPageProps) {
   const cwd = session.root.cwd ?? session.root.projectPath ?? "";
   const sourceInfo = getSourceInfo(session);
   const assistantLabel = sourceInfo.assistantLabel;
+  const env = getAgentThreadEnv();
+  const publicBaseUrl = resolvePublicBaseUrl(env.PUBLIC_BASE_URL ?? env.AGENT_THREAD_SERVER_URL, DEFAULT_SERVER_URL);
 
   return (
     <>
@@ -245,11 +247,7 @@ export default async function ThreadPage({ params }: ThreadPageProps) {
           </header>
 
           <div className="chat-stream">
-            <ImportCard
-              publicId={publicId}
-              serverUrl={DEFAULT_SERVER_URL}
-              defaultTarget={session.source === "codex" ? "codex" : "claude"}
-            />
+            <ImportCard publicId={publicId} serverUrl={publicBaseUrl} source={session.source} />
             <div>
               {session.threads.map((thread) => (
                 <Thread

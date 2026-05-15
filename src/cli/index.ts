@@ -4,15 +4,9 @@ import { cancel, intro, outro, spinner } from "@clack/prompts";
 
 import { parseArgs, type CliOptions } from "./args";
 import { formatSessionLabel } from "./display";
-import { importSharedSession, formatImportSummary } from "./import";
-import {
-  convertLocalSelection,
-  formatLocalConversionSummary,
-  resolveLocalConversionTarget,
-} from "./local";
-import { chooseImportTarget, chooseSession } from "./prompt";
+import { formatImportSummary, importSharedSession } from "./import";
+import { chooseSession } from "./prompt";
 import { uploadSelection } from "./upload";
-import { targetLabel } from "../shared/imports";
 import { discoverClaudeSessions } from "../shared/claude";
 import { discoverCodexSessions } from "../shared/codex";
 
@@ -48,13 +42,13 @@ async function runClaudeUpload(options: CliOptions, label: string) {
   }
 
   const uploadSpinner = spinner();
-  uploadSpinner.start(`Uploading ${formatSessionLabel(selected)}`);
+  uploadSpinner.start(`Exporting ${formatSessionLabel(selected)}`);
   const result = await uploadSelection(options.serverUrl, {
     provider: "claude",
     session: selected,
     claudeHome: options.claudeHome,
   });
-  uploadSpinner.stop(`Uploaded ${formatSessionLabel(selected)}`);
+  uploadSpinner.stop(`Exported ${formatSessionLabel(selected)}`);
 
   return result;
 }
@@ -87,111 +81,14 @@ async function runCodexUpload(options: CliOptions, label: string) {
   }
 
   const uploadSpinner = spinner();
-  uploadSpinner.start(`Uploading ${formatSessionLabel(selected)}`);
+  uploadSpinner.start(`Exporting ${formatSessionLabel(selected)}`);
   const result = await uploadSelection(options.serverUrl, {
     provider: "codex",
     session: selected,
     codexHome: options.codexHome,
   });
-  uploadSpinner.stop(`Uploaded ${formatSessionLabel(selected)}`);
+  uploadSpinner.stop(`Exported ${formatSessionLabel(selected)}`);
 
-  return result;
-}
-
-async function runLocalConversion(options: CliOptions, label: string) {
-  const target = resolveLocalConversionTarget(options.provider, options.importTarget);
-  const targetName = targetLabel(target);
-  const scanSpinner = options.json ? null : spinner();
-  scanSpinner?.start(`Scanning local ${label} sessions`);
-
-  if (options.provider === "codex") {
-    const sessions = await discoverCodexSessions({
-      cwd: options.cwd,
-      codexHome: options.codexHome,
-    });
-    scanSpinner?.stop(`Found ${sessions.length} matching session${sessions.length === 1 ? "" : "s"}`);
-
-    if (sessions.length === 0) {
-      if (!options.json) {
-        cancel(`No ${label} sessions found for this directory.`);
-      } else {
-        console.log(JSON.stringify({ error: `No ${label} sessions found.` }));
-      }
-      process.exit(1);
-    }
-
-    const selected = await chooseSession(sessions, options.latest, undefined, label, "convert");
-
-    if (!selected) {
-      if (!options.json) {
-        cancel("No session selected.");
-      }
-      process.exit(1);
-    }
-
-    const convertSpinner = options.json ? null : spinner();
-    convertSpinner?.start(`Converting ${formatSessionLabel(selected)} to ${targetName}`);
-    const result = await convertLocalSelection(
-      {
-        provider: "codex",
-        session: selected,
-        codexHome: options.codexHome,
-      },
-      {
-        target,
-        workspace: options.workspace,
-        claudeHome: options.claudeHome,
-        codexHome: options.codexHome,
-        dryRun: options.dryRun,
-        force: options.force,
-      },
-    );
-    convertSpinner?.stop(options.dryRun ? "Conversion plan ready" : "Conversion complete");
-    return result;
-  }
-
-  const sessions = await discoverClaudeSessions({
-    cwd: options.cwd,
-    claudeHome: options.claudeHome,
-  });
-  scanSpinner?.stop(`Found ${sessions.length} matching session${sessions.length === 1 ? "" : "s"}`);
-
-  if (sessions.length === 0) {
-    if (!options.json) {
-      cancel(`No ${label} sessions found for this directory.`);
-    } else {
-      console.log(JSON.stringify({ error: `No ${label} sessions found.` }));
-    }
-    process.exit(1);
-  }
-
-  const selected = await chooseSession(sessions, options.latest, undefined, label, "convert");
-
-  if (!selected) {
-    if (!options.json) {
-      cancel("No session selected.");
-    }
-    process.exit(1);
-  }
-
-  const convertSpinner = options.json ? null : spinner();
-  convertSpinner?.start(`Converting ${formatSessionLabel(selected)} to ${targetName}`);
-  const result = await convertLocalSelection(
-    {
-      provider: "claude",
-      session: selected,
-      claudeHome: options.claudeHome,
-    },
-    {
-      target,
-      workspace: options.workspace,
-      claudeHome: options.claudeHome,
-      codexHome: options.codexHome,
-      dryRun: options.dryRun,
-      force: options.force,
-    },
-  );
-  convertSpinner?.stop(options.dryRun ? "Conversion plan ready" : "Conversion complete");
   return result;
 }
 
@@ -203,44 +100,19 @@ async function main(): Promise<void> {
     intro("agent-thread");
   }
 
-  if (options.local) {
-    const result = await runLocalConversion(options, label);
-
-    if (options.json) {
-      console.log(JSON.stringify(result, null, 2));
-      return;
-    }
-
-    outro(formatLocalConversionSummary(result));
-    return;
-  }
-
   if (options.importRef) {
-    const target = options.importTarget ?? (await chooseImportTarget());
-    if (!target) {
-      if (!options.json) {
-        cancel("No import target selected. Pass --to claude or --to codex.");
-      }
-      process.exit(1);
-    }
-
-    const importSpinner = spinner();
-    if (!options.json) {
-      importSpinner.start(`Fetching shared thread`);
-    }
+    const importSpinner = options.json ? null : spinner();
+    importSpinner?.start("Fetching shared thread");
     const result = await importSharedSession({
       serverUrl: options.serverUrl,
       importRef: options.importRef,
-      target,
       workspace: options.workspace,
       claudeHome: options.claudeHome,
       codexHome: options.codexHome,
       dryRun: options.dryRun,
       force: options.force,
     });
-    if (!options.json) {
-      importSpinner.stop(options.dryRun ? "Import plan ready" : "Import complete");
-    }
+    importSpinner?.stop(options.dryRun ? "Import plan ready" : "Import complete");
 
     if (options.json) {
       console.log(JSON.stringify(result, null, 2));

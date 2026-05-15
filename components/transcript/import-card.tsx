@@ -1,53 +1,27 @@
 "use client";
 
-import * as React from "react";
-
-import { cn } from "@/lib/utils";
 import { CopyButton } from "@/components/copy-button";
-
-type Target = "claude" | "codex";
-
-const targets: Array<{ id: Target; label: string; icon: string }> = [
-  { id: "claude", label: "Claude Code", icon: "/claudecode-color.svg" },
-  { id: "codex", label: "Codex", icon: "/codex-color.svg" },
-];
+import { getSourceInfo } from "@/lib/thread-source";
+import type { UploadSource } from "@/src/shared/contracts";
 
 type ImportCardProps = {
   publicId: string;
   serverUrl: string;
-  defaultTarget?: Target;
+  source: UploadSource;
 };
 
-export function ImportCard({ publicId, serverUrl, defaultTarget = "claude" }: ImportCardProps) {
-  const [active, setActive] = React.useState<Target>(defaultTarget);
-  const command = `npx agent-thread --import ${serverUrl}/t/${publicId} --to ${active}`;
+export function ImportCard({ publicId, serverUrl, source }: ImportCardProps) {
+  const sourceInfo = getSourceInfo({ source });
+  const command = `bunx agent-thread --import ${serverUrl}/t/${publicId}`;
 
   return (
     <div className="import-card">
       <div className="import-card-copy">
-        <div className="import-card-heading">Continue where they left off</div>
-        <p className="import-card-subtitle">Import this session into your CLI and pick up the context locally.</p>
-      </div>
-      <div
-        role="tablist"
-        aria-label="Import target"
-        className="import-card-tabs"
-      >
-        {targets.map((target) => (
-          <button
-            key={target.id}
-            type="button"
-            role="tab"
-            aria-selected={active === target.id}
-            onClick={() => setActive(target.id)}
-            className={cn("import-tab", active === target.id && "import-tab-active")}
-          >
-            <img src={target.icon} alt="" aria-hidden="true" className="import-tab-icon" />
-            {target.label}
-          </button>
-        ))}
+        <div className="import-card-heading">Import into {sourceInfo.label}</div>
+        <p className="import-card-subtitle">Restore this shared session back into the same local app it came from.</p>
       </div>
       <div className="import-command">
+        <img className="import-command-icon" src={sourceInfo.logoSrc} alt="" aria-hidden="true" />
         <code className="import-command-text">{command}</code>
         <CopyButton value={command} label="Copy" copiedLabel="Copied" className="import-copy-button" size="sm" />
       </div>
