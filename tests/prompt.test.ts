@@ -57,7 +57,7 @@ test("chooseSession returns the selected session from a single page", async () =
   });
 
   expect(selected).toBe(sessions[2]!);
-  expect(seenMessages).toEqual(["Select a Claude session to upload"]);
+  expect(seenMessages).toEqual(["Select a Claude session to export"]);
 });
 
 test("chooseSession pages forward to older sessions", async () => {
@@ -85,8 +85,8 @@ test("chooseSession pages forward to older sessions", async () => {
 
   expect(selected).toBe(sessions[13]!);
   expect(seenMessages).toEqual([
-    "Select a Claude session to upload (Page 1 of 3, 1-10 of 25)",
-    "Select a Claude session to upload (Page 2 of 3, 11-20 of 25)",
+    "Select a Claude session to export (Page 1 of 3, 1-10 of 25)",
+    "Select a Claude session to export (Page 2 of 3, 11-20 of 25)",
   ]);
 });
 
@@ -106,7 +106,7 @@ test("chooseSession pages back to newer sessions", async () => {
         return config.options.find((option) => option.label === "Newer sessions")!.value;
       }
 
-      expect(config.message).toBe("Select a Claude session to upload (Page 1 of 3, 1-10 of 21)");
+      expect(config.message).toBe("Select a Claude session to export (Page 1 of 3, 1-10 of 21)");
       return config.options[0]!.value;
     },
     isPromptCancel: () => false,

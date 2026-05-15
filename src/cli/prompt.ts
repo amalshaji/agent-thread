@@ -1,7 +1,6 @@
 import { isCancel, select } from "@clack/prompts";
 
 import { formatSessionHint, formatSessionLabel, type DisplaySession } from "./display";
-import type { ImportTarget } from "../shared/imports";
 
 const SESSION_PAGE_SIZE = 10;
 
@@ -95,7 +94,7 @@ export async function chooseSession<T extends DisplaySession>(
   latest: boolean,
   deps: SessionPromptDeps = DEFAULT_PROMPT_DEPS,
   providerLabel = "Claude",
-  action = "upload",
+  action = "export",
 ): Promise<T | null> {
   if (sessions.length === 0) {
     return null;
@@ -136,41 +135,4 @@ export async function chooseSession<T extends DisplaySession>(
         break;
     }
   }
-}
-
-export async function chooseImportTarget(
-  deps: {
-    prompt: (options: {
-      message: string;
-      options: Array<{ value: ImportTarget; label: string; hint?: string }>;
-    }) => Promise<ImportTarget | symbol>;
-    isPromptCancel: CancelDetector;
-    isInteractive?: boolean;
-  } = {
-    prompt: select as (options: {
-      message: string;
-      options: Array<{ value: ImportTarget; label: string; hint?: string }>;
-    }) => Promise<ImportTarget | symbol>,
-    isPromptCancel: isCancel,
-  },
-): Promise<ImportTarget | null> {
-  const isInteractive = deps.isInteractive ?? process.stdout.isTTY;
-
-  if (!isInteractive) {
-    return null;
-  }
-
-  const value = await deps.prompt({
-    message: "Import into which app?",
-    options: [
-      { value: "claude", label: "Claude Code", hint: "Write JSONL into ~/.claude/projects" },
-      { value: "codex", label: "Codex", hint: "Write JSONL into ~/.codex/sessions" },
-    ],
-  });
-
-  if (deps.isPromptCancel(value) || typeof value === "symbol") {
-    return null;
-  }
-
-  return value;
 }

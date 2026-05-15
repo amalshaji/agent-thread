@@ -3,18 +3,14 @@ import { access, mkdir, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { promisify } from "node:util";
 
-import type { NormalizedSession, NormalizedThread, RawUploadFile, SessionExportBundle } from "../contracts";
+import type { NormalizedThread, RawUploadFile, SessionExportBundle } from "../contracts";
 import { getCodexHome } from "../codex/path-utils";
-import { getClaudeImportPath, getCodexImportPath, providerSourceForTarget } from "./paths";
-import {
-  normalizedToClaudeRawFiles,
-  normalizedToCodexRawFiles,
-  retargetClaudeRawFiles,
-  retargetCodexRawFiles,
-} from "./transform";
+import { getClaudeImportPath, getCodexImportPath, targetForSource } from "./paths";
 import type { ImportOptions, ImportPreparedFile, ImportResult } from "./types";
 
 const execFileAsync = promisify(execFile);
+
+type JsonRecord = Record<string, unknown>;
 
 async function exists(path: string): Promise<boolean> {
   try {
@@ -25,37 +21,52 @@ async function exists(path: string): Promise<boolean> {
   }
 }
 
-function prepareRawFiles(bundle: SessionExportBundle, options: ImportOptions): { rawFiles: RawUploadFile[]; transformed: boolean } {
-  const targetSource = providerSourceForTarget(options.target);
-
-  if (bundle.source === targetSource) {
-    return {
-      rawFiles:
-        options.target === "codex"
-          ? retargetCodexRawFiles(bundle.rawFiles, options.workspace)
-          : retargetClaudeRawFiles(bundle.rawFiles, options.workspace),
-      transformed: false,
-    };
-  }
-
-  return {
-    rawFiles:
-      options.target === "codex"
-        ? normalizedToCodexRawFiles(bundle.normalized, options.workspace)
-        : normalizedToClaudeRawFiles(bundle.normalized, options.workspace),
-    transformed: true,
-  };
+function asRecord(value: unknown): JsonRecord | null {
+  return value && typeof value === "object" && !Array.isArray(value) ? (value as JsonRecord) : null;
 }
 
-function prepareTargetFiles(rawFiles: RawUploadFile[], options: ImportOptions): ImportPreparedFile[] {
-  return rawFiles.map((rawFile) => ({
-    rawFile,
-    content: rawFile.content,
-    targetPath:
-      options.target === "codex"
-        ? getCodexImportPath(rawFile, options.codexHome)
-        : getClaudeImportPath(rawFile, options.workspace, options.claudeHome),
+function mapJsonLines(content: string, mapper: (record: JsonRecord) => void): string {
+  return content
+    .split(/\r?\n/)
+    .map((line) => {
+      if (!line.trim()) return "";
+      const parsed = JSON.parse(line);
+      const record = asRecord(parsed);
+      if (record) {
+        mapper(record);
+      }
+      return JSON.stringify(record ?? parsed);
+    })
+    .filter(Boolean)
+    .join("\n")
+    .concat("\n");
+}
+
+function retargetClaudeRawFiles(rawFiles: RawUploadFile[], workspace: string): RawUploadFile[] {
+  return rawFiles.map((file) => ({
+    ...file,
+    content: mapJsonLines(file.content, (record) => {
+      record.cwd = workspace;
+    }),
   }));
+}
+
+function retargetCodexRawFiles(rawFiles: RawUploadFile[], workspace: string): RawUploadFile[] {
+  return rawFiles.map((file) => ({
+    ...file,
+    content: mapJsonLines(file.content, (record) => {
+      const payload = asRecord(record.payload);
+      if ((record.type === "session_meta" || record.type === "turn_context") && payload) {
+        payload.cwd = workspace;
+      }
+    }),
+  }));
+}
+
+function prepareRawFiles(bundle: SessionExportBundle, options: ImportOptions): RawUploadFile[] {
+  return bundle.source === "codex"
+    ? retargetCodexRawFiles(bundle.rawFiles, options.workspace)
+    : retargetClaudeRawFiles(bundle.rawFiles, options.workspace);
 }
 
 function escapeSql(value: string | null | undefined): string {
@@ -87,7 +98,7 @@ async function maybeIndexCodexThreads(
   files: ImportPreparedFile[],
   options: ImportOptions,
 ): Promise<string[]> {
-  if (options.target !== "codex" || options.dryRun) {
+  if (bundle.source !== "codex" || options.dryRun) {
     return [];
   }
 
@@ -101,14 +112,16 @@ async function maybeIndexCodexThreads(
 
   const fileByThreadId = new Map(files.map((file) => [file.rawFile.threadId, file]));
   const insertMode = options.force ? "INSERT OR REPLACE" : "INSERT OR IGNORE";
+  const importedAt = Math.floor(Date.now() / 1000);
   const statements = bundle.normalized.threads
     .map((thread) => {
-      const file = fileByThreadId.get(thread.id);
+      const file = fileByThreadId.get(thread.kind === "main" ? thread.sessionId : `${thread.sessionId}:${thread.agentId ?? thread.id}`) ?? fileByThreadId.get(thread.id);
       if (!file) return null;
 
       const createdAt = unixSeconds(thread.startedAt ?? bundle.normalized.root.startedAt);
-      const updatedAt = createdAt;
+      const updatedAt = Math.max(importedAt, createdAt);
       const title = bundle.normalized.root.title || firstUserText(thread) || "Imported thread";
+      const userText = firstUserText(thread);
 
       return `
         ${insertMode} INTO threads (
@@ -146,13 +159,13 @@ async function maybeIndexCodexThreads(
           'danger-full-access',
           'never',
           0,
-          ${firstUserText(thread) ? 1 : 0},
+          ${userText ? 1 : 0},
           0,
           NULL,
           ${escapeSql(thread.gitBranch ?? bundle.normalized.root.gitBranch)},
           NULL,
           'agent-thread-import',
-          ${escapeSql(firstUserText(thread))},
+          ${escapeSql(userText)},
           ${escapeSql(thread.events.find((event) => event.meta.model)?.meta.model)},
           NULL,
           ${createdAt * 1000},
@@ -177,11 +190,19 @@ async function maybeIndexCodexThreads(
 }
 
 export async function importSessionBundle(bundle: SessionExportBundle, options: ImportOptions): Promise<ImportResult> {
-  const prepared = prepareRawFiles(bundle, options);
-  const targetFiles = prepareTargetFiles(prepared.rawFiles, options);
+  const target = targetForSource(bundle.source);
+  const preparedRawFiles = prepareRawFiles(bundle, options);
+  const targetFiles = preparedRawFiles.map((rawFile) => ({
+    rawFile,
+    content: rawFile.content,
+    targetPath:
+      target === "codex"
+        ? getCodexImportPath(rawFile, options.codexHome)
+        : getClaudeImportPath(rawFile, options.workspace, options.claudeHome),
+  }));
   const existing = await Promise.all(targetFiles.map((file) => exists(file.targetPath)));
 
-  if (!options.force) {
+  if (!options.force && !options.dryRun) {
     const conflicts = targetFiles.filter((_, index) => existing[index]);
     if (conflicts.length > 0) {
       throw new Error(
@@ -207,9 +228,8 @@ export async function importSessionBundle(bundle: SessionExportBundle, options: 
 
   return {
     source: bundle.source,
-    target: options.target,
+    target,
     workspace: options.workspace,
-    transformed: prepared.transformed,
     dryRun: options.dryRun === true,
     files: targetFiles.map((file, index) => ({
       kind: file.rawFile.kind,

@@ -15,7 +15,7 @@ export default function HomePage() {
           <div className="grid gap-3">
             <h1 className="m-0 text-[24px] font-semibold leading-tight text-foreground">Share agent sessions</h1>
             <p className="m-0 text-sm leading-6 text-muted-foreground">
-              Upload Claude Code sessions or Codex threads as public links in one command.
+              Export Claude Code sessions or Codex threads to public links in one command.
             </p>
           </div>
           <SourceCommandTabs />

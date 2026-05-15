@@ -3,7 +3,6 @@ import type { RawUploadFile, UploadSource } from "../contracts";
 export type ImportTarget = "claude" | "codex";
 
 export interface ImportOptions {
-  target: ImportTarget;
   workspace: string;
   claudeHome?: string;
   codexHome?: string;
@@ -21,7 +20,6 @@ export interface ImportResult {
   source: UploadSource;
   target: ImportTarget;
   workspace: string;
-  transformed: boolean;
   dryRun: boolean;
   files: Array<{
     kind: "main" | "sidechain";

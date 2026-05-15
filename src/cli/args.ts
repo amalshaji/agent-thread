@@ -1,9 +1,7 @@
 export interface CliOptions {
   cwd: string;
   provider: "claude" | "codex";
-  local: boolean;
   importRef?: string;
-  importTarget?: "claude" | "codex";
   workspace: string;
   claudeHome?: string;
   codexHome?: string;
@@ -27,32 +25,18 @@ export function usage(): string {
     "Options:",
     "  --codex               Inspect Codex threads instead of Claude sessions",
     "  --claude              Inspect Claude sessions (default)",
-    "  --local               Convert a local chat into the opposite app without uploading",
-    "  --import <url|id>     Import a shared thread into Claude Code or Codex",
-    "  --to <target>         Import/conversion target: claude or codex",
+    "  --import <url|id>     Import a shared thread back into its source app",
     "  --workspace <path>    Workspace path to attach imported history to",
     "  --cwd <path>          Inspect sessions for a different directory",
     "  --claude-home <path>  Override the Claude home directory",
     "  --codex-home <path>   Override the Codex home directory",
     "  --server <url>        Server base URL",
-    "  --latest              Upload or convert the latest session without prompting",
-    "  --dry-run             Show import/conversion target paths without writing files",
+    "  --latest              Export the latest session without prompting",
+    "  --dry-run             Show import target paths without writing files",
     "  --force               Overwrite existing local import files",
     "  --json                Print the result as JSON",
     "  --help                Show this help message",
   ].join("\n");
-}
-
-function parseImportTarget(value: string | undefined): "claude" | "codex" {
-  if (value === "claude" || value === "claude-code") {
-    return "claude";
-  }
-
-  if (value === "codex") {
-    return "codex";
-  }
-
-  throw new Error(`Invalid import target: ${value ?? ""}. Expected claude or codex.`);
 }
 
 function flagValue(argv: string[], index: number, flag: string): string {
@@ -69,7 +53,6 @@ export function parseArgs(argv: string[]): CliOptions {
   const options: CliOptions = {
     cwd: process.cwd(),
     provider: "claude",
-    local: false,
     workspace: process.cwd(),
     serverUrl: resolveServerUrl(),
     latest: false,
@@ -92,15 +75,8 @@ export function parseArgs(argv: string[]): CliOptions {
       case "--claude":
         options.provider = "claude";
         break;
-      case "--local":
-        options.local = true;
-        break;
       case "--import":
         options.importRef = flagValue(argv, index, "--import");
-        index += 1;
-        break;
-      case "--to":
-        options.importTarget = parseImportTarget(flagValue(argv, index, "--to"));
         index += 1;
         break;
       case "--workspace":
@@ -145,10 +121,6 @@ export function parseArgs(argv: string[]): CliOptions {
         }
         break;
     }
-  }
-
-  if (options.local && options.importRef) {
-    throw new Error("--local cannot be combined with --import.");
   }
 
   return options;

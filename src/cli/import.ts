@@ -1,10 +1,14 @@
 import type { SessionExportBundle } from "../shared/contracts";
-import { importSessionBundle, resolveWorkspace, targetLabel, type ImportResult, type ImportTarget } from "../shared/imports";
+import {
+  importSessionBundle,
+  resolveWorkspace,
+  targetLabel,
+  type ImportResult,
+} from "../shared/imports";
 
 interface ImportCliOptions {
   serverUrl: string;
   importRef: string;
-  target: ImportTarget;
   workspace: string;
   claudeHome?: string;
   codexHome?: string;
@@ -98,7 +102,6 @@ export async function importSharedSession(options: ImportCliOptions): Promise<Im
   const bundle = await fetchSessionExport(options.importRef, options.serverUrl);
 
   return importSessionBundle(bundle, {
-    target: options.target,
     workspace: resolveWorkspace(options.workspace),
     claudeHome: options.claudeHome,
     codexHome: options.codexHome,
@@ -109,9 +112,11 @@ export async function importSharedSession(options: ImportCliOptions): Promise<Im
 
 export function formatImportSummary(result: ImportResult): string {
   const action = result.dryRun ? "would import" : "imported";
-  const mode = result.transformed ? `${result.source} -> ${targetLabel(result.target)} transform` : `${targetLabel(result.target)} raw restore`;
   const files = result.files.map((file) => `  ${file.written ? "wrote" : "plan"} ${file.path}`).join("\n");
-  const warnings = result.warnings.length > 0 ? `\n\n${result.warnings.map((warning) => `Warning: ${warning}`).join("\n")}` : "";
+  const warnings =
+    result.warnings.length > 0
+      ? `\n\n${result.warnings.map((warning) => `Warning: ${warning}`).join("\n")}`
+      : "";
 
-  return `${action} ${result.files.length} file${result.files.length === 1 ? "" : "s"} (${mode})\n${files}${warnings}`;
+  return `${action} ${result.files.length} file${result.files.length === 1 ? "" : "s"} (${targetLabel(result.target)} raw restore)\n${files}${warnings}`;
 }

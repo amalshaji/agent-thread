@@ -35,7 +35,7 @@ export async function formatUploadFailure(response: Response, uploadUrl: URL): P
       const parsed = JSON.parse(trimmed) as { error?: unknown };
 
       if (typeof parsed.error === "string" && parsed.error.trim()) {
-        return `Upload failed (${response.status}): ${parsed.error.trim()}`;
+        return `Export failed (${response.status}): ${parsed.error.trim()}`;
       }
     } catch {
       // Fall through to the plain text formatter below.
@@ -45,21 +45,21 @@ export async function formatUploadFailure(response: Response, uploadUrl: URL): P
   if (contentType.includes("text/html") || /^<!doctype html/i.test(trimmed) || /^<html/i.test(trimmed)) {
     const details =
       response.status === 404
-        ? "The configured server URL is not serving the agent-thread upload API."
-        : "Received an HTML page instead of the upload API response.";
+        ? "The configured server URL is not serving the agent-thread export API."
+        : "Received an HTML page instead of the export API response.";
 
     return [
-      `Upload failed (${response.status}) at ${uploadUrl.toString()}.`,
+      `Export failed (${response.status}) at ${uploadUrl.toString()}.`,
       details,
       "Set AGENT_THREAD_SERVER_URL or pass --server with the Worker base URL, for example https://agent-thread.com.",
     ].join(" ");
   }
 
   if (trimmed) {
-    return `Upload failed (${response.status}): ${summarizeBody(trimmed)}`;
+    return `Export failed (${response.status}): ${summarizeBody(trimmed)}`;
   }
 
-  return `Upload failed (${response.status}) at ${uploadUrl.toString()}.`;
+  return `Export failed (${response.status}) at ${uploadUrl.toString()}.`;
 }
 
 export function buildPublicThreadUrl(serverUrl: string, publicId: string): string {
