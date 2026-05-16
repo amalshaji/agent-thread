@@ -7,7 +7,7 @@ import { promisify } from "node:util";
 
 import { parseImportRef } from "../src/cli/import";
 import type { NormalizedSession, SessionExportBundle } from "../src/shared/contracts";
-import { loadSessionExportByPublicId } from "../lib/storage";
+import { createSessionExportResponse, loadSessionExportByPublicId } from "../lib/storage";
 import { importSessionBundle } from "../src/shared/imports";
 import { encodeClaudeProjectPath } from "../src/shared/claude";
 
@@ -107,6 +107,18 @@ function codexBundle(): SessionExportBundle {
       },
     ],
   };
+}
+
+function streamFromChunks(chunks: string[]): ReadableStream<Uint8Array> {
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      const encoder = new TextEncoder();
+      for (const chunk of chunks) {
+        controller.enqueue(encoder.encode(chunk));
+      }
+      controller.close();
+    },
+  });
 }
 
 async function createCodexStateDb(codexHome: string): Promise<string> {
@@ -218,6 +230,66 @@ describe("same-app imports", () => {
     expect(result?.schemaVersion).toBe(1);
     expect(result?.source).toBe("claude-code");
     expect(result?.rawFiles).toEqual(bundle.rawFiles);
+  });
+
+  test("streams export bundles without materializing raw files first", async () => {
+    const bundle = claudeBundle();
+    const rawContent = "line one\nquoted \"value\"\nbackslash \\\\ value\n";
+    const db = {
+      prepare: () => ({
+        bind: () => ({
+          first: async () => ({
+            id: "upload-1",
+            public_id: bundle.publicId,
+            source: bundle.source,
+            session_id: bundle.normalized.root.sessionId,
+            project_key: bundle.normalized.root.projectKey,
+            title: bundle.normalized.root.title,
+            project_path: bundle.normalized.root.projectPath,
+            raw_prefix: "raw/claude-code/upload-1",
+            normalized_key: "normalized/upload-1.json",
+            event_count: bundle.normalized.stats.eventCount,
+            thread_count: bundle.normalized.stats.threadCount,
+            created_at: "2026-04-26T00:00:00.000Z",
+          }),
+        }),
+      }),
+    };
+    const bucket = {
+      get: async (key: string) => {
+        if (key === "normalized/upload-1.json") {
+          return { json: async () => bundle.normalized };
+        }
+        if (key === "raw/claude-code/upload-1/claude-session-1.jsonl") {
+          return {
+            body: streamFromChunks(["line one\nquoted \"", "value\"\nbackslash \\\\ value\n"]),
+            text: async () => {
+              throw new Error("streaming export should not call text() for raw files");
+            },
+            customMetadata: {
+              threadId: bundle.rawFiles[0]!.threadId,
+              kind: bundle.rawFiles[0]!.kind,
+              relativePath: bundle.rawFiles[0]!.relativePath,
+            },
+          };
+        }
+        return null;
+      },
+      list: async () => ({
+        objects: [{ key: "raw/claude-code/upload-1/claude-session-1.jsonl" }],
+        truncated: false,
+      }),
+    };
+
+    const response = await createSessionExportResponse(
+      { DB: db as unknown as D1Database, SESSIONS_BUCKET: bucket as unknown as R2Bucket },
+      bundle.publicId,
+    );
+    const streamed = await response?.json() as SessionExportBundle | undefined;
+
+    expect(streamed?.schemaVersion).toBe(1);
+    expect(streamed?.source).toBe("claude-code");
+    expect(streamed?.rawFiles[0]?.content).toBe(rawContent);
   });
 
   test("imports a Claude export into the requested Claude workspace", async () => {

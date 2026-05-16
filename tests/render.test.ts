@@ -2,9 +2,10 @@ import { expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToReadableStream } from "react-dom/server";
 
-import type { NormalizedSession, NormalizedThread } from "../src/shared/contracts";
+import type { NormalizedEvent, NormalizedSession, NormalizedThread } from "../src/shared/contracts";
 import { resetDiffBudget } from "../lib/transcript/diff";
 import { getToolMeta } from "../lib/transcript/tool-inline";
+import { buildCursorHref, parseTranscriptCursor, sliceSessionForEventPage } from "../lib/transcript/pagination";
 import { Thread } from "../components/transcript/thread";
 import { ImportCard } from "../components/transcript/import-card";
 
@@ -29,6 +30,89 @@ function mainThread(session: NormalizedSession): NormalizedThread {
   if (!t) throw new Error("no thread");
   return t;
 }
+
+function textEvent(seq: number): NormalizedEvent {
+  return {
+    id: `event-${seq}`,
+    parentId: null,
+    seq,
+    timestamp: `2026-03-27T00:${String(seq).padStart(2, "0")}:00.000Z`,
+    topLevelType: "message",
+    role: seq % 2 === 0 ? "user" : "assistant",
+    displayKind: "message",
+    blocks: [{ kind: "text", text: `event ${seq}` }],
+    textPreview: `event ${seq}`,
+    flags: { isMeta: false, isSidechain: false },
+    refs: {},
+    meta: {},
+  };
+}
+
+function eventPageSession(count: number): NormalizedSession {
+  const events = Array.from({ length: count }, (_entry, index) => textEvent(index));
+
+  return {
+    schemaVersion: 1,
+    source: "codex",
+    importedAt: "2026-03-27T00:00:00.000Z",
+    root: {
+      sessionId: "paginated-session",
+      projectKey: "paginated-project",
+      projectPath: "/tmp/project",
+      title: "Pagination",
+      cwd: "/tmp/project",
+      gitBranch: "main",
+      startedAt: "2026-03-27T00:00:00.000Z",
+    },
+    threads: [
+      {
+        id: "thread-pagination",
+        kind: "main",
+        sessionId: "paginated-session",
+        agentId: null,
+        sourceFileName: "paginated.jsonl",
+        sourceRelativePath: "sessions/2026/03/27/paginated.jsonl",
+        cwd: "/tmp/project",
+        gitBranch: "main",
+        startedAt: "2026-03-27T00:00:00.000Z",
+        rootEventIds: events.map((event) => event.id),
+        events,
+      },
+    ],
+    stats: { threadCount: 1, eventCount: count, messageCount: count, sidechainCount: 0 },
+  };
+}
+
+test("slices large transcript pages without changing full session stats", () => {
+  const session = eventPageSession(5);
+  const first = sliceSessionForEventPage(session, 0, 2);
+  const second = sliceSessionForEventPage(session, 2, 2);
+  const oversized = sliceSessionForEventPage(session, 99, 2);
+
+  expect(first.session.stats.eventCount).toBe(5);
+  expect(first.session.threads[0]?.events.map((event) => event.id)).toEqual(["event-0", "event-1"]);
+  expect(first.startEventNumber).toBe(1);
+  expect(first.endEventNumber).toBe(2);
+  expect(first.previousCursor).toBeNull();
+  expect(first.nextCursor).toBe(2);
+
+  expect(second.session.threads[0]?.events.map((event) => event.id)).toEqual(["event-2", "event-3"]);
+  expect(second.previousCursor).toBe(0);
+  expect(second.nextCursor).toBe(4);
+
+  expect(oversized.cursor).toBe(4);
+  expect(oversized.session.threads[0]?.events.map((event) => event.id)).toEqual(["event-4"]);
+  expect(oversized.nextCursor).toBeNull();
+});
+
+test("builds stable transcript cursor links", () => {
+  expect(parseTranscriptCursor(undefined)).toBe(0);
+  expect(parseTranscriptCursor("-10")).toBe(0);
+  expect(parseTranscriptCursor("240")).toBe(240);
+  expect(parseTranscriptCursor(["360"])).toBe(360);
+  expect(buildCursorHref("abc123", 0, "event-1")).toBe("/t/abc123#event-1");
+  expect(buildCursorHref("abc123", 120, "event-2")).toBe("/t/abc123?cursor=120#event-2");
+});
 
 test("renders a source-locked import command card", async () => {
   const stream = await renderToReadableStream(
