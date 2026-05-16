@@ -14,6 +14,14 @@ import type { NormalizedSession } from "@/src/shared/contracts";
 import { Thread } from "@/components/transcript/thread";
 import { ImportCard } from "@/components/transcript/import-card";
 import { resetDiffBudget } from "@/lib/transcript/diff";
+import {
+  buildCursorHref,
+  cursorForEventIndex,
+  parseTranscriptCursor,
+  sliceSessionForEventPage,
+  TRANSCRIPT_EVENT_PAGE_SIZE,
+  type TranscriptEventPage,
+} from "@/lib/transcript/pagination";
 import { formatShortDate, formatShortTime } from "@/lib/transcript/utils";
 import { DEFAULT_SERVER_URL } from "@/src/cli/args";
 
@@ -21,6 +29,7 @@ export const dynamic = "force-dynamic";
 
 type ThreadPageProps = {
   params: Promise<{ publicId: string }>;
+  searchParams?: Promise<{ cursor?: string | string[] }>;
 };
 
 type OutlineItem = {
@@ -29,13 +38,14 @@ type OutlineItem = {
   label: string;
   role: "user" | "assistant";
   displayRole: string;
+  href: string;
 };
 
 function getAssistantLabel(session: NormalizedSession): string {
   return getSourceInfo(session).assistantLabel;
 }
 
-function buildOutlineItems(session: NormalizedSession): OutlineItem[] {
+function buildOutlineItems(session: NormalizedSession, publicId: string): OutlineItem[] {
   const mainThread = session.threads.find((thread) => thread.kind === "main") ?? session.threads[0];
   const assistantLabel = getAssistantLabel(session);
 
@@ -43,9 +53,15 @@ function buildOutlineItems(session: NormalizedSession): OutlineItem[] {
     return [];
   }
 
+  let mainThreadOffset = 0;
+  for (const thread of session.threads) {
+    if (thread.id === mainThread.id) break;
+    mainThreadOffset += thread.events.length;
+  }
   const items: OutlineItem[] = [];
 
-  for (const event of mainThread.events) {
+  for (let eventIndex = 0; eventIndex < mainThread.events.length; eventIndex += 1) {
+    const event = mainThread.events[eventIndex]!;
     if (event.role !== "user" && event.role !== "assistant") {
       continue;
     }
@@ -73,6 +89,11 @@ function buildOutlineItems(session: NormalizedSession): OutlineItem[] {
       label,
       role,
       displayRole: role === "user" ? "You" : assistantLabel,
+      href: buildCursorHref(
+        publicId,
+        cursorForEventIndex(mainThreadOffset + eventIndex, TRANSCRIPT_EVENT_PAGE_SIZE),
+        event.id,
+      ),
     });
   }
 
@@ -99,6 +120,42 @@ function buildMetaItems(session: NormalizedSession): string[] {
   }
 
   return parts;
+}
+
+function TranscriptPageNav({ publicId, page }: { publicId: string; page: TranscriptEventPage }) {
+  if (page.totalEvents <= page.limit) {
+    return null;
+  }
+
+  const rangeLabel =
+    page.renderedEventCount > 0
+      ? `Showing events ${page.startEventNumber.toLocaleString("en-US")}-${page.endEventNumber.toLocaleString("en-US")} of ${page.totalEvents.toLocaleString("en-US")}`
+      : `No events to show out of ${page.totalEvents.toLocaleString("en-US")}`;
+
+  return (
+    <nav className="transcript-page-nav" aria-label="Transcript event pages">
+      <div>
+        <div className="transcript-page-label">Large transcript</div>
+        <div className="transcript-page-range">{rangeLabel}</div>
+      </div>
+      <div className="transcript-page-actions">
+        {page.previousCursor === null ? (
+          <span className="transcript-page-button transcript-page-button-disabled">Previous</span>
+        ) : (
+          <a className="transcript-page-button" href={buildCursorHref(publicId, page.previousCursor)}>
+            Previous
+          </a>
+        )}
+        {page.nextCursor === null ? (
+          <span className="transcript-page-button transcript-page-button-disabled">Next</span>
+        ) : (
+          <a className="transcript-page-button" href={buildCursorHref(publicId, page.nextCursor)}>
+            Next
+          </a>
+        )}
+      </div>
+    </nav>
+  );
 }
 
 async function loadThreadPageData(publicId: string) {
@@ -151,23 +208,26 @@ export async function generateMetadata({ params }: ThreadPageProps): Promise<Met
   };
 }
 
-export default async function ThreadPage({ params }: ThreadPageProps) {
+export default async function ThreadPage({ params, searchParams }: ThreadPageProps) {
   const { publicId } = await params;
+  const cursor = parseTranscriptCursor((await searchParams)?.cursor);
   const result = await loadThreadPageData(publicId);
 
   if (!result) {
     return <SessionNotFound />;
   }
 
-  const { session } = result;
+  const fullSession = result.session;
+  const eventPage = sliceSessionForEventPage(fullSession, cursor, TRANSCRIPT_EVENT_PAGE_SIZE);
+  const { session } = eventPage;
   resetDiffBudget();
 
-  const hasMultipleThreads = session.threads.length > 1;
-  const title = session.root.title ?? session.root.sessionId;
-  const outlineItems = buildOutlineItems(session);
-  const metaItems = buildMetaItems(session);
-  const cwd = session.root.cwd ?? session.root.projectPath ?? "";
-  const sourceInfo = getSourceInfo(session);
+  const hasMultipleThreads = fullSession.threads.length > 1;
+  const title = fullSession.root.title ?? fullSession.root.sessionId;
+  const outlineItems = buildOutlineItems(fullSession, publicId);
+  const metaItems = buildMetaItems(fullSession);
+  const cwd = fullSession.root.cwd ?? fullSession.root.projectPath ?? "";
+  const sourceInfo = getSourceInfo(fullSession);
   const assistantLabel = sourceInfo.assistantLabel;
   const env = getAgentThreadEnv();
   const publicBaseUrl = resolvePublicBaseUrl(env.PUBLIC_BASE_URL ?? env.AGENT_THREAD_SERVER_URL, DEFAULT_SERVER_URL);
@@ -184,7 +244,7 @@ export default async function ThreadPage({ params }: ThreadPageProps) {
                 {outlineItems.length > 0 ? (
                   outlineItems.map((item) => (
                     <li key={item.id} className={`outline-item outline-${item.role}`}>
-                      <a href={`#${item.id}`}>
+                      <a href={item.href}>
                         <span className="outline-idx">{item.index}</span>
                         <span className="outline-role">{item.displayRole}</span>
                         <span className="outline-label">{item.label}</span>
@@ -248,6 +308,7 @@ export default async function ThreadPage({ params }: ThreadPageProps) {
 
           <div className="chat-stream">
             <ImportCard publicId={publicId} serverUrl={publicBaseUrl} source={session.source} />
+            <TranscriptPageNav publicId={publicId} page={eventPage} />
             <div>
               {session.threads.map((thread) => (
                 <Thread
@@ -259,10 +320,13 @@ export default async function ThreadPage({ params }: ThreadPageProps) {
                 />
               ))}
             </div>
-            <div className="chat-end">
-              <div className="chat-end-dot" />
-              <span>Conversation ended</span>
-            </div>
+            <TranscriptPageNav publicId={publicId} page={eventPage} />
+            {eventPage.nextCursor === null ? (
+              <div className="chat-end">
+                <div className="chat-end-dot" />
+                <span>Conversation ended</span>
+              </div>
+            ) : null}
           </div>
         </main>
       </div>

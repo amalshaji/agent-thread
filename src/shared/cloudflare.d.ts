@@ -11,6 +11,7 @@ interface D1Database {
 interface R2ObjectBody {
   key?: string;
   customMetadata?: Record<string, string>;
+  body?: ReadableStream<Uint8Array>;
   json<T = unknown>(): Promise<T>;
   text(): Promise<string>;
 }
