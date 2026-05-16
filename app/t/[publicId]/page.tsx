@@ -13,6 +13,7 @@ import { getSourceInfo } from "@/lib/thread-source";
 import type { NormalizedSession } from "@/src/shared/contracts";
 import { Thread } from "@/components/transcript/thread";
 import { ImportCard } from "@/components/transcript/import-card";
+import { TranscriptInfiniteLoader } from "@/components/transcript/infinite-loader";
 import { resetDiffBudget } from "@/lib/transcript/diff";
 import {
   buildCursorHref,
@@ -20,7 +21,6 @@ import {
   parseTranscriptCursor,
   sliceSessionForEventPage,
   TRANSCRIPT_EVENT_PAGE_SIZE,
-  type TranscriptEventPage,
 } from "@/lib/transcript/pagination";
 import { formatShortDate, formatShortTime } from "@/lib/transcript/utils";
 import { DEFAULT_SERVER_URL } from "@/src/cli/args";
@@ -120,42 +120,6 @@ function buildMetaItems(session: NormalizedSession): string[] {
   }
 
   return parts;
-}
-
-function TranscriptPageNav({ publicId, page }: { publicId: string; page: TranscriptEventPage }) {
-  if (page.totalEvents <= page.limit) {
-    return null;
-  }
-
-  const rangeLabel =
-    page.renderedEventCount > 0
-      ? `Showing events ${page.startEventNumber.toLocaleString("en-US")}-${page.endEventNumber.toLocaleString("en-US")} of ${page.totalEvents.toLocaleString("en-US")}`
-      : `No events to show out of ${page.totalEvents.toLocaleString("en-US")}`;
-
-  return (
-    <nav className="transcript-page-nav" aria-label="Transcript event pages">
-      <div>
-        <div className="transcript-page-label">Large transcript</div>
-        <div className="transcript-page-range">{rangeLabel}</div>
-      </div>
-      <div className="transcript-page-actions">
-        {page.previousCursor === null ? (
-          <span className="transcript-page-button transcript-page-button-disabled">Previous</span>
-        ) : (
-          <a className="transcript-page-button" href={buildCursorHref(publicId, page.previousCursor)}>
-            Previous
-          </a>
-        )}
-        {page.nextCursor === null ? (
-          <span className="transcript-page-button transcript-page-button-disabled">Next</span>
-        ) : (
-          <a className="transcript-page-button" href={buildCursorHref(publicId, page.nextCursor)}>
-            Next
-          </a>
-        )}
-      </div>
-    </nav>
-  );
 }
 
 async function loadThreadPageData(publicId: string) {
@@ -308,8 +272,7 @@ export default async function ThreadPage({ params, searchParams }: ThreadPagePro
 
           <div className="chat-stream">
             <ImportCard publicId={publicId} serverUrl={publicBaseUrl} source={session.source} />
-            <TranscriptPageNav publicId={publicId} page={eventPage} />
-            <div>
+            <div data-transcript-events>
               {session.threads.map((thread) => (
                 <Thread
                   key={thread.id}
@@ -320,13 +283,7 @@ export default async function ThreadPage({ params, searchParams }: ThreadPagePro
                 />
               ))}
             </div>
-            <TranscriptPageNav publicId={publicId} page={eventPage} />
-            {eventPage.nextCursor === null ? (
-              <div className="chat-end">
-                <div className="chat-end-dot" />
-                <span>Conversation ended</span>
-              </div>
-            ) : null}
+            <TranscriptInfiniteLoader publicId={publicId} initialNextCursor={eventPage.nextCursor} />
           </div>
         </main>
       </div>
