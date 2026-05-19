@@ -338,6 +338,10 @@ function isSimpleFileMutationResult(content: unknown): boolean {
 }
 
 export function shouldHideRedundantToolResult(toolUse: ToolUseBlock | undefined, result: ToolResultBlock): boolean {
+  if (isInternalTranscriptToolResult(toolUse, result)) {
+    return true;
+  }
+
   if (!toolUse) {
     return false;
   }
@@ -351,4 +355,22 @@ export function shouldHideRedundantToolResult(toolUse: ToolUseBlock | undefined,
   }
 
   return isSimpleFileMutationResult(result.content);
+}
+
+const INTERNAL_TRANSCRIPT_TOOLS = new Set(["create_goal", "get_goal", "update_goal", "update_plan"]);
+
+export function isInternalTranscriptToolUse(toolUse: ToolUseBlock | undefined): boolean {
+  return toolUse ? INTERNAL_TRANSCRIPT_TOOLS.has(toolUse.name.toLowerCase()) : false;
+}
+
+export function isInternalTranscriptToolResult(
+  toolUse: ToolUseBlock | undefined,
+  result: ToolResultBlock,
+): boolean {
+  if (isInternalTranscriptToolUse(toolUse)) {
+    return true;
+  }
+
+  const text = getToolResultTextContent(result.content);
+  return text?.trim() === "Plan updated";
 }

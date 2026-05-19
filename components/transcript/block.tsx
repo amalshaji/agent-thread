@@ -5,6 +5,7 @@ import { TextContent } from "./text-content";
 import { ToolUseBlockComponent } from "./tool-use-block";
 import { ToolResultBlockComponent } from "./tool-result-block";
 import { getRenderableImage } from "@/lib/transcript/attachments";
+import { hasVisibleTranscriptText } from "@/lib/transcript/internal-directives";
 import { prettyJson } from "@/lib/transcript/utils";
 import type { ToolResultBlock, ToolUseBlock } from "@/lib/transcript/tool-inline";
 
@@ -16,6 +17,7 @@ interface BlockContext {
 export async function Block({ block, context = {} }: { block: ContentBlock; context?: BlockContext }) {
   switch (block.kind) {
     case "text":
+      if (!hasVisibleTranscriptText(block.text)) return null;
       return <TextContent text={block.text} />;
 
     case "thinking": {

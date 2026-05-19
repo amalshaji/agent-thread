@@ -2,6 +2,7 @@ import { ImageAttachment } from "./image-attachment";
 import { TextContent } from "./text-content";
 import type { ToolResultBlock } from "@/lib/transcript/tool-inline";
 import { getRenderableImage } from "@/lib/transcript/attachments";
+import { stripInternalTranscriptDirectives } from "@/lib/transcript/internal-directives";
 import { prettyJson } from "@/lib/transcript/utils";
 
 type RecordValue = Record<string, unknown>;
@@ -73,17 +74,20 @@ function formatEmbeddedJsonOutput(value: string): string | null {
 }
 
 async function ToolResultText({ text }: { text: string }) {
-  const parsed = parseJsonObjectOrArray(text);
+  const displayText = stripInternalTranscriptDirectives(text);
+  if (!displayText) return null;
+
+  const parsed = parseJsonObjectOrArray(displayText);
   if (parsed !== null) {
     return <pre className="tool-payload">{prettyJson(parsed)}</pre>;
   }
 
-  const formattedOutput = formatEmbeddedJsonOutput(text);
+  const formattedOutput = formatEmbeddedJsonOutput(displayText);
   if (formattedOutput !== null) {
     return <pre className="tool-payload">{formattedOutput}</pre>;
   }
 
-  return <TextContent text={text} />;
+  return <TextContent text={displayText} />;
 }
 
 async function ToolResultEntry({ entry }: { entry: unknown }) {

@@ -4,6 +4,7 @@ import { renderToReadableStream } from "react-dom/server";
 
 import type { NormalizedEvent, NormalizedSession, NormalizedThread } from "../src/shared/contracts";
 import { resetDiffBudget } from "../lib/transcript/diff";
+import { stripInternalTranscriptDirectives } from "../lib/transcript/internal-directives";
 import { getToolMeta } from "../lib/transcript/tool-inline";
 import { buildCursorHref, parseTranscriptCursor, sliceSessionForEventPage } from "../lib/transcript/pagination";
 import { buildSessionEventsResponse } from "../lib/transcript/events-response";
@@ -119,6 +120,33 @@ function sessionEnv(session: NormalizedSession | null): { DB: D1Database; SESSIO
   return { DB: db as unknown as D1Database, SESSIONS_BUCKET: bucket as unknown as R2Bucket };
 }
 
+test("strips internal Codex directives outside fenced code", () => {
+  const text = [
+    "Done.",
+    "",
+    "::git-create-branch{cwd=\"/repo\" branch=\"codex/example\"}",
+    "<oai-mem-citation>",
+    "<citation_entries>",
+    "MEMORY.md:1-2|note=[internal]",
+    "</citation_entries>",
+    "<rollout_ids>",
+    "</rollout_ids>",
+    "</oai-mem-citation>",
+    "",
+    "```text",
+    "::git-create-branch{this stays visible}",
+    "```",
+  ].join("\n");
+
+  expect(stripInternalTranscriptDirectives(text)).toBe([
+    "Done.",
+    "",
+    "```text",
+    "::git-create-branch{this stays visible}",
+    "```",
+  ].join("\n"));
+});
+
 test("renders transcript event slices for infinite scrolling", async () => {
   const response = await buildSessionEventsResponse(sessionEnv(eventPageSession(125)), "abc123", "120");
   const payload = await response.json() as { html: string; page: { cursor: number; nextCursor: number | null; startEventNumber: number; endEventNumber: number } };
@@ -218,6 +246,92 @@ test("summarizes exec_command tool inputs with a command preview", () => {
   const truncated = getToolMeta("exec_command", { cmd: "x".repeat(100) });
   expect(truncated.summary.length).toBe(idealCommand.length);
   expect(truncated.summary.endsWith("...")).toBe(true);
+});
+
+test("hides Codex planning output and internal final-answer directives", async () => {
+  const thread: NormalizedThread = {
+    id: "thread-internal-directives",
+    kind: "main",
+    sessionId: "session-internal-directives",
+    agentId: null,
+    sourceFileName: "session-internal-directives.jsonl",
+    sourceRelativePath: "project/session-internal-directives.jsonl",
+    cwd: "/tmp/project",
+    gitBranch: "main",
+    startedAt: "2026-03-27T00:00:00.000Z",
+    rootEventIds: ["plan-call", "plan-output", "final-message"],
+    events: [
+      {
+        id: "plan-call",
+        parentId: null,
+        seq: 0,
+        timestamp: "2026-03-27T00:00:01.000Z",
+        topLevelType: "response_item.function_call",
+        role: "assistant",
+        displayKind: "tool_use",
+        blocks: [{ kind: "tool_use", id: "call-plan", name: "update_plan", input: { plan: [] } }],
+        textPreview: null,
+        flags: { isMeta: false, isSidechain: false },
+        refs: {},
+        meta: { entrypoint: "codex" },
+      },
+      {
+        id: "plan-output",
+        parentId: null,
+        seq: 1,
+        timestamp: "2026-03-27T00:00:02.000Z",
+        topLevelType: "response_item.function_call_output",
+        role: "assistant",
+        displayKind: "tool_result",
+        blocks: [{ kind: "tool_result", toolUseId: "call-plan", content: "Plan updated" }],
+        textPreview: "Plan updated",
+        flags: { isMeta: false, isSidechain: false },
+        refs: {},
+        meta: { entrypoint: "codex" },
+      },
+      {
+        id: "final-message",
+        parentId: null,
+        seq: 2,
+        timestamp: "2026-03-27T00:00:03.000Z",
+        topLevelType: "response_item.message",
+        role: "assistant",
+        displayKind: "message",
+        blocks: [
+          {
+            kind: "text",
+            text: [
+              "Implemented on latest `main`, isolated on `codex/app-server-api`.",
+              "",
+              "::git-create-branch{cwd=\"/Users/amalshaji/Workspace/portr\" branch=\"codex/app-server-api\"}",
+              "",
+              "<oai-mem-citation>",
+              "<citation_entries>",
+              "MEMORY.md:575-620|note=[internal]",
+              "</citation_entries>",
+              "<rollout_ids>",
+              "019dc41b-64e6-7d21-a8a8-3eb740d42411",
+              "</rollout_ids>",
+              "</oai-mem-citation>",
+            ].join("\n"),
+          },
+        ],
+        textPreview: "Implemented on latest main",
+        flags: { isMeta: false, isSidechain: false },
+        refs: {},
+        meta: { entrypoint: "codex" },
+      },
+    ],
+  };
+
+  const html = await renderThread(thread);
+
+  expect(html).toContain("Implemented on latest");
+  expect(html).not.toContain("Tool output");
+  expect(html).not.toContain("Plan updated");
+  expect(html).not.toContain("::git-create-branch");
+  expect(html).not.toContain("oai-mem-citation");
+  expect(html).not.toContain("MEMORY.md");
 });
 
 test("hides empty thinking pre blocks and renders patch diffs", async () => {

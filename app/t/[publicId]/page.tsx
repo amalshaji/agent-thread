@@ -15,6 +15,7 @@ import { Thread } from "@/components/transcript/thread";
 import { ImportCard } from "@/components/transcript/import-card";
 import { TranscriptInfiniteLoader } from "@/components/transcript/infinite-loader";
 import { resetDiffBudget } from "@/lib/transcript/diff";
+import { stripInternalTranscriptDirectives } from "@/lib/transcript/internal-directives";
 import {
   buildCursorHref,
   cursorForEventIndex,
@@ -71,11 +72,12 @@ function buildOutlineItems(session: NormalizedSession, publicId: string): Outlin
     }
 
     const textBlock = event.blocks.find((block) => block.kind === "text");
-    if (!textBlock || textBlock.kind !== "text" || !textBlock.text.trim()) {
+    const displayText = textBlock?.kind === "text" ? stripInternalTranscriptDirectives(textBlock.text) : "";
+    if (!displayText.trim()) {
       continue;
     }
 
-    const firstLine = textBlock.text.split("\n").find((line) => line.trim()) ?? "";
+    const firstLine = displayText.split("\n").find((line) => line.trim()) ?? "";
     if (!firstLine.trim()) {
       continue;
     }

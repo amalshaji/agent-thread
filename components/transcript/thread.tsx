@@ -1,7 +1,10 @@
 import type { NormalizedEvent, NormalizedThread } from "@/src/shared/contracts";
 import { Block } from "./block";
 import { isMetadataEvent } from "@/lib/transcript/event-classification";
-import { shouldHideRedundantToolResult } from "@/lib/transcript/tool-inline";
+import {
+  isInternalTranscriptToolUse,
+  shouldHideRedundantToolResult,
+} from "@/lib/transcript/tool-inline";
 import type { ToolResultBlock, ToolUseBlock } from "@/lib/transcript/tool-inline";
 import { splitThreadEvents } from "@/lib/transcript/visibility";
 import { formatRelativeTime, formatShortTime, titleCase } from "@/lib/transcript/utils";
@@ -63,6 +66,11 @@ function shouldSkipEvent(
   event: NormalizedEvent,
   toolUseMap: Map<string, ToolUseBlock>,
 ): boolean {
+  if (event.displayKind === "tool_use") {
+    const toolUseBlocks = event.blocks.filter((b): b is ToolUseBlock => b.kind === "tool_use");
+    return toolUseBlocks.length > 0 && toolUseBlocks.every(isInternalTranscriptToolUse);
+  }
+
   if (event.displayKind !== "tool_result") return false;
   const resultBlocks = event.blocks.filter((b): b is ToolResultBlock => b.kind === "tool_result");
   if (resultBlocks.length === 0) return false;

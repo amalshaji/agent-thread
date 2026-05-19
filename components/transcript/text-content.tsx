@@ -1,4 +1,5 @@
 import { extractPatch, renderDiffBlock } from "@/lib/transcript/diff";
+import { stripInternalTranscriptDirectives } from "@/lib/transcript/internal-directives";
 import { renderMarkdownInner } from "@/lib/transcript/markdown";
 
 function isStandalonePatchText(value: string): boolean {
@@ -11,7 +12,10 @@ function isStandalonePatchText(value: string): boolean {
 }
 
 export async function TextContent({ text }: { text: string }) {
-  const patch = isStandalonePatchText(text) ? extractPatch(text) : null;
+  const displayText = stripInternalTranscriptDirectives(text);
+  if (!displayText) return null;
+
+  const patch = isStandalonePatchText(displayText) ? extractPatch(displayText) : null;
 
   if (patch) {
     const diffHtml = await renderDiffBlock(patch);
@@ -21,6 +25,6 @@ export async function TextContent({ text }: { text: string }) {
     }
   }
 
-  const innerHtml = await renderMarkdownInner(text);
+  const innerHtml = await renderMarkdownInner(displayText);
   return <div className="block markdown" dangerouslySetInnerHTML={{ __html: innerHtml }} />;
 }
