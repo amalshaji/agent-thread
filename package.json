@@ -1,6 +1,6 @@
 {
   "name": "agent-thread",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "type": "module",
   "description": "Share Claude Code and Codex sessions as public links",
   "license": "MIT",

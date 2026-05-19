@@ -1,4 +1,4 @@
-import { basename, dirname, join, resolve } from "node:path";
+import { basename, isAbsolute, join, relative, resolve } from "node:path";
 
 import type { RawUploadFile, UploadSource } from "../contracts";
 import { encodeClaudeProjectPath, getClaudeHome } from "../claude/path-utils";
@@ -25,10 +25,52 @@ export function getClaudeImportPath(rawFile: RawUploadFile, workspace: string, e
   return join(getClaudeProjectDir(workspace, explicitClaudeHome), basename(rawFile.fileName));
 }
 
-export function getCodexImportPath(rawFile: RawUploadFile, explicitCodexHome?: string): string {
-  const relativePath = rawFile.relativePath.startsWith("sessions/")
-    ? rawFile.relativePath
-    : join("sessions", dirname(rawFile.relativePath), rawFile.fileName);
+function splitSafeRelativePath(value: string, fieldName: string): string[] {
+  const normalized = value.replaceAll("\\", "/");
 
-  return join(getCodexHome(explicitCodexHome), relativePath);
+  if (normalized.startsWith("/") || /^[A-Za-z]:/.test(normalized)) {
+    throw new Error(`Unsafe Codex import path: ${fieldName} must be relative.`);
+  }
+
+  const parts = normalized.split("/");
+  if (parts.some((part) => part.length === 0 || part === "." || part === "..")) {
+    throw new Error(`Unsafe Codex import path: ${fieldName} contains unsafe path segments.`);
+  }
+
+  return parts;
+}
+
+function assertSafeFileName(value: string): string {
+  if (!value || value === "." || value === ".." || value.includes("/") || value.includes("\\")) {
+    throw new Error("Unsafe Codex import path: fileName must be a single file name.");
+  }
+
+  return value;
+}
+
+function isWithinPath(parent: string, candidate: string): boolean {
+  const child = relative(parent, candidate);
+  return child === "" || (!child.startsWith("..") && !isAbsolute(child));
+}
+
+export function getCodexImportPath(rawFile: RawUploadFile, explicitCodexHome?: string): string {
+  const codexHome = getCodexHome(explicitCodexHome);
+  const sessionsRoot = join(codexHome, "sessions");
+  const relativeParts = splitSafeRelativePath(rawFile.relativePath, "relativePath");
+  const targetParts =
+    relativeParts[0] === "sessions"
+      ? relativeParts.slice(1)
+      : [...relativeParts.slice(0, -1), assertSafeFileName(rawFile.fileName)];
+
+  if (targetParts.length === 0) {
+    throw new Error("Unsafe Codex import path: relativePath must point to a file under sessions.");
+  }
+
+  const targetPath = resolve(sessionsRoot, ...targetParts);
+
+  if (!isWithinPath(sessionsRoot, targetPath)) {
+    throw new Error("Unsafe Codex import path: target must stay inside the Codex sessions directory.");
+  }
+
+  return targetPath;
 }

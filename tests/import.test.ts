@@ -334,6 +334,67 @@ describe("same-app imports", () => {
     }
   });
 
+  test("dry-runs a Codex export with legacy relative paths under sessions", async () => {
+    const sandbox = await mkdtemp(join(tmpdir(), "agent-thread-import-"));
+
+    try {
+      const bundle = codexBundle();
+      bundle.rawFiles[0]!.relativePath = "2026/04/26/rollout-codex-session-1.jsonl";
+
+      const codexHome = join(sandbox, ".codex");
+      const workspace = join(sandbox, "workspace", "codex-target");
+      const result = await importSessionBundle(bundle, {
+        workspace,
+        codexHome,
+        dryRun: true,
+      });
+
+      expect(result.files[0]?.path).toBe(join(codexHome, "sessions", "2026", "04", "26", "rollout-codex-session-1.jsonl"));
+      expect(result.files[0]?.written).toBe(false);
+    } finally {
+      await rm(sandbox, { recursive: true, force: true });
+    }
+  });
+
+  test("rejects Codex imports that escape the sessions path", async () => {
+    const sandbox = await mkdtemp(join(tmpdir(), "agent-thread-import-"));
+
+    try {
+      const bundle = codexBundle();
+      bundle.rawFiles[0]!.relativePath = "sessions/../state_5.sqlite";
+
+      await expect(
+        importSessionBundle(bundle, {
+          workspace: join(sandbox, "workspace", "codex-target"),
+          codexHome: join(sandbox, ".codex"),
+          dryRun: true,
+        }),
+      ).rejects.toThrow("Unsafe Codex import path");
+    } finally {
+      await rm(sandbox, { recursive: true, force: true });
+    }
+  });
+
+  test("rejects Codex imports with unsafe raw file names", async () => {
+    const sandbox = await mkdtemp(join(tmpdir(), "agent-thread-import-"));
+
+    try {
+      const bundle = codexBundle();
+      bundle.rawFiles[0]!.relativePath = "2026/04/26/rollout-codex-session-1.jsonl";
+      bundle.rawFiles[0]!.fileName = "../state_5.sqlite";
+
+      await expect(
+        importSessionBundle(bundle, {
+          workspace: join(sandbox, "workspace", "codex-target"),
+          codexHome: join(sandbox, ".codex"),
+          dryRun: true,
+        }),
+      ).rejects.toThrow("Unsafe Codex import path");
+    } finally {
+      await rm(sandbox, { recursive: true, force: true });
+    }
+  });
+
   test("rejects overwrites unless force is passed", async () => {
     const sandbox = await mkdtemp(join(tmpdir(), "agent-thread-import-"));
 

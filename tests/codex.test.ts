@@ -3,7 +3,9 @@ import { mkdir, mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
+import { validateUploadRequest } from "../lib/validation";
 import { buildUploadRequest, discoverCodexSessions, encodeCodexProjectPath } from "../src/shared/codex";
+import { MAX_TEXT_PREVIEW_BYTES } from "../src/shared/text-preview";
 
 describe("Codex discovery", () => {
   test("finds scoped rollout files and normalizes visible transcript events", async () => {
@@ -114,6 +116,15 @@ describe("Codex discovery", () => {
           },
         }),
         JSON.stringify({
+          timestamp: "2026-04-25T19:08:34.300Z",
+          type: "response_item",
+          payload: {
+            type: "function_call_output",
+            call_id: "call_long",
+            output: "x".repeat(2000),
+          },
+        }),
+        JSON.stringify({
           timestamp: "2026-04-25T19:08:35.100Z",
           type: "event_msg",
           payload: {
@@ -165,7 +176,15 @@ describe("Codex discovery", () => {
     const events = upload.normalized.threads[0]!.events;
     expect(events.some((event) => event.textPreview?.includes("Hidden developer setup"))).toBe(false);
     expect(events.some((event) => event.textPreview?.includes("AGENTS.md"))).toBe(false);
-    expect(events.map((event) => event.displayKind)).toEqual(["message", "message", "thinking", "tool_use", "tool_result", "meta"]);
+    expect(events.map((event) => event.displayKind)).toEqual([
+      "message",
+      "message",
+      "thinking",
+      "tool_use",
+      "tool_result",
+      "tool_result",
+      "meta",
+    ]);
     expect(events[2]?.blocks[0]).toMatchObject({
       kind: "thinking",
       text: "Need to check the local transcript shape.",
@@ -176,7 +195,11 @@ describe("Codex discovery", () => {
       name: "exec_command",
       input: { cmd: "pwd" },
     });
-    expect(events[5]?.meta).toMatchObject({
+    const longOutputPreview = events[5]?.textPreview ?? "";
+    expect(longOutputPreview.endsWith("...")).toBe(true);
+    expect(new TextEncoder().encode(longOutputPreview).byteLength).toBeLessThanOrEqual(MAX_TEXT_PREVIEW_BYTES);
+    expect(validateUploadRequest(upload).ok).toBe(true);
+    expect(events[6]?.meta).toMatchObject({
       entrypoint: "codex",
       subtype: "token_count",
       usage: {
@@ -190,8 +213,8 @@ describe("Codex discovery", () => {
         modelContextWindow: 258400,
       },
     });
-    expect(JSON.stringify(events[5]?.meta.usage)).not.toContain("rate_limits");
-    expect(JSON.stringify(events[5]?.meta.usage)).not.toContain("credits");
+    expect(JSON.stringify(events[6]?.meta.usage)).not.toContain("rate_limits");
+    expect(JSON.stringify(events[6]?.meta.usage)).not.toContain("credits");
 
     await rm(sandbox, { recursive: true, force: true });
   });

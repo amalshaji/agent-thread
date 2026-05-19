@@ -3,6 +3,7 @@ import type {
   NormalizedEvent,
   NormalizedEventDisplayKind,
 } from "../contracts";
+import { boundedTextPreview } from "../text-preview";
 import type { ClaudeEvent, ClaudeMessageBlock, JsonValue } from "./types";
 
 const LOCAL_COMMAND_PREFIXES = ["<local-command-caveat>", "<command-name>", "<local-command-stdout>"];
@@ -147,7 +148,7 @@ export function normalizeClaudeEvent(event: ClaudeEvent, seq: number): Normalize
       : normalizeContentBlocks(event.message?.content ?? event.toolUseResult);
 
   const displayKind = deriveDisplayKind(event, blocks);
-  const textPreview = firstTextBlock(blocks);
+  const textPreview = boundedTextPreview(firstTextBlock(blocks));
   const role = displayKind === "meta" ? null : event.message?.role ?? (event.type === "system" ? "system" : null);
 
   return {

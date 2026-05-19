@@ -47,6 +47,16 @@ function isBoundedString(value: unknown, maxLength: number): value is string {
   return typeof value === "string" && value.length > 0 && value.length <= maxLength;
 }
 
+function isSafeRelativePath(value: string): boolean {
+  const normalized = value.replaceAll("\\", "/");
+
+  if (normalized.startsWith("/") || /^[A-Za-z]:/.test(normalized)) {
+    return false;
+  }
+
+  return normalized.split("/").every((segment) => segment.length > 0 && segment !== "." && segment !== "..");
+}
+
 function isNullableBoundedString(value: unknown, maxLength: number): value is string | null {
   return value === null || (typeof value === "string" && value.length <= maxLength);
 }
@@ -75,7 +85,10 @@ function validateRawFile(value: unknown): value is RawUploadFile {
     isBoundedString(value.fileName, 512) &&
     !value.fileName.includes("/") &&
     !value.fileName.includes("\\") &&
+    value.fileName !== "." &&
+    value.fileName !== ".." &&
     isBoundedString(value.relativePath, 4096) &&
+    isSafeRelativePath(value.relativePath) &&
     typeof value.content === "string" &&
     byteLength(value.content) <= MAX_RAW_FILE_BYTES
   );
