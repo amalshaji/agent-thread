@@ -9,6 +9,8 @@ type LightboxState = {
   alt: string;
 } | null;
 
+export const TRANSCRIPT_CONTENT_APPENDED_EVENT = "agent-thread:transcript-content-appended";
+
 function useCodeCollapse() {
   React.useEffect(() => {
     const collapseThreshold = 120;
@@ -34,14 +36,6 @@ function useCodeCollapse() {
         wrapper.remove();
       }
     }
-
-    function restoreToolContent() {
-      document.querySelectorAll<HTMLElement>("pre.tool-payload, .toolcall .diff-view, .tool-result-disclosure .diff-view").forEach(
-        restoreTarget,
-      );
-    }
-
-    restoreToolContent();
 
     function makeExpandButton(wrapper: HTMLElement, target: HTMLElement) {
       const button = document.createElement("button");
@@ -99,47 +93,57 @@ function useCodeCollapse() {
       wrapper.appendChild(makeExpandButton(wrapper, target));
     }
 
-    document.querySelectorAll<HTMLElement>(".code-block-wrapper > pre").forEach((pre) => {
-      if (pre.scrollHeight <= collapseThreshold) {
-        return;
-      }
+    function collapseCodeBlocks() {
+      document.querySelectorAll<HTMLElement>(".code-block-wrapper > pre").forEach((pre) => {
+        if (pre.scrollHeight <= collapseThreshold) {
+          return;
+        }
 
-      const parent = pre.parentElement;
-      if (!parent) {
-        return;
-      }
+        const parent = pre.parentElement;
+        if (!parent) {
+          return;
+        }
 
-      if (parent.classList.contains("code-block-wrapper") || parent.classList.contains("code-collapser")) {
-        parent.style.position = "relative";
-        collapseTarget(pre, parent);
-        return;
-      }
+        if (parent.classList.contains("code-block-wrapper") || parent.classList.contains("code-collapser")) {
+          parent.style.position = "relative";
+          collapseTarget(pre, parent);
+          return;
+        }
 
-      const wrapper = document.createElement("div");
-      wrapper.className = "code-collapser";
-      parent.insertBefore(wrapper, pre);
-      wrapper.appendChild(pre);
-      collapseTarget(pre, wrapper);
-    });
+        const wrapper = document.createElement("div");
+        wrapper.className = "code-collapser";
+        parent.insertBefore(wrapper, pre);
+        wrapper.appendChild(pre);
+        collapseTarget(pre, wrapper);
+      });
 
-    document.querySelectorAll<HTMLElement>(".block.markdown .diff-view").forEach((diffView) => {
-      if (diffView.scrollHeight <= collapseThreshold) {
-        return;
-      }
+      document.querySelectorAll<HTMLElement>(".block.markdown .diff-view").forEach((diffView) => {
+        if (diffView.scrollHeight <= collapseThreshold) {
+          return;
+        }
 
-      const parent = diffView.parentElement;
-      if (!parent || parent.classList.contains("code-collapser")) {
-        return;
-      }
+        const parent = diffView.parentElement;
+        if (!parent || parent.classList.contains("code-collapser")) {
+          return;
+        }
 
-      const wrapper = document.createElement("div");
-      wrapper.className = "code-collapser";
-      parent.insertBefore(wrapper, diffView);
-      wrapper.appendChild(diffView);
-      collapseTarget(diffView, wrapper);
-    });
+        const wrapper = document.createElement("div");
+        wrapper.className = "code-collapser";
+        parent.insertBefore(wrapper, diffView);
+        wrapper.appendChild(diffView);
+        collapseTarget(diffView, wrapper);
+      });
+    }
 
-    return restoreToolContent;
+    collapseCodeBlocks();
+    window.addEventListener(TRANSCRIPT_CONTENT_APPENDED_EVENT, collapseCodeBlocks);
+
+    return () => {
+      window.removeEventListener(TRANSCRIPT_CONTENT_APPENDED_EVENT, collapseCodeBlocks);
+      document.querySelectorAll<HTMLElement>("pre.tool-payload, .toolcall .diff-view, .tool-result-disclosure .diff-view").forEach(
+        restoreTarget,
+      );
+    };
   }, []);
 }
 

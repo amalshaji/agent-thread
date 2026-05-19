@@ -6,6 +6,7 @@ import type { NormalizedEvent, NormalizedSession, NormalizedThread } from "../sr
 import { resetDiffBudget } from "../lib/transcript/diff";
 import { getToolMeta } from "../lib/transcript/tool-inline";
 import { buildCursorHref, parseTranscriptCursor, sliceSessionForEventPage } from "../lib/transcript/pagination";
+import { buildSessionEventsResponse } from "../lib/transcript/events-response";
 import { Thread } from "../components/transcript/thread";
 import { ImportCard } from "../components/transcript/import-card";
 
@@ -82,6 +83,72 @@ function eventPageSession(count: number): NormalizedSession {
     stats: { threadCount: 1, eventCount: count, messageCount: count, sidechainCount: 0 },
   };
 }
+
+function sessionEnv(session: NormalizedSession | null): { DB: D1Database; SESSIONS_BUCKET: R2Bucket } {
+  const db = {
+    prepare: () => ({
+      bind: () => ({
+        first: async () =>
+          session
+            ? {
+                id: "upload-1",
+                public_id: "abc123",
+                source: session.source,
+                session_id: session.root.sessionId,
+                project_key: session.root.projectKey,
+                title: session.root.title,
+                project_path: session.root.projectPath,
+                raw_prefix: "raw/codex/upload-1",
+                normalized_key: "normalized/upload-1.json",
+                event_count: session.stats.eventCount,
+                thread_count: session.stats.threadCount,
+                created_at: "2026-03-27T00:00:00.000Z",
+              }
+            : null,
+      }),
+    }),
+  };
+  const bucket = {
+    get: async (key: string) =>
+      session && key === "normalized/upload-1.json"
+        ? { json: async () => session }
+        : null,
+    list: async () => ({ objects: [], truncated: false }),
+  };
+
+  return { DB: db as unknown as D1Database, SESSIONS_BUCKET: bucket as unknown as R2Bucket };
+}
+
+test("renders transcript event slices for infinite scrolling", async () => {
+  const response = await buildSessionEventsResponse(sessionEnv(eventPageSession(125)), "abc123", "120");
+  const payload = await response.json() as { html: string; page: { cursor: number; nextCursor: number | null; startEventNumber: number; endEventNumber: number } };
+
+  expect(response.status).toBe(200);
+  expect(payload.page.cursor).toBe(120);
+  expect(payload.page.startEventNumber).toBe(121);
+  expect(payload.page.endEventNumber).toBe(125);
+  expect(payload.page.nextCursor).toBeNull();
+  expect(payload.html).toContain("event 120");
+  expect(payload.html).not.toContain("event 0");
+});
+
+test("sanitizes invalid transcript event cursors to the first slice", async () => {
+  const response = await buildSessionEventsResponse(sessionEnv(eventPageSession(3)), "abc123", "not-a-number");
+  const payload = await response.json() as { html: string; page: { cursor: number; nextCursor: number | null } };
+
+  expect(response.status).toBe(200);
+  expect(payload.page.cursor).toBe(0);
+  expect(payload.page.nextCursor).toBeNull();
+  expect(payload.html).toContain("event 0");
+});
+
+test("returns not found for missing transcript event sessions", async () => {
+  const response = await buildSessionEventsResponse(sessionEnv(null), "missing", "0");
+  const payload = await response.json() as { error: string };
+
+  expect(response.status).toBe(404);
+  expect(payload.error).toBe("Session not found.");
+});
 
 test("slices large transcript pages without changing full session stats", () => {
   const session = eventPageSession(5);
