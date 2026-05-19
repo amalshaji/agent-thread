@@ -3,6 +3,23 @@
   "version": "0.1.6",
   "type": "module",
   "description": "Share Claude Code and Codex sessions as public links",
+  "license": "MIT",
+  "author": "Amal Shaji",
+  "homepage": "https://github.com/amalshaji/agent-thread#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/amalshaji/agent-thread.git"
+  },
+  "bugs": {
+    "url": "https://github.com/amalshaji/agent-thread/issues"
+  },
+  "keywords": [
+    "agent",
+    "claude-code",
+    "codex",
+    "transcript",
+    "cloudflare"
+  ],
   "bin": {
     "agent-thread": "./dist/cli.js"
   },

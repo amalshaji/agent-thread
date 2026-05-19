@@ -7,6 +7,7 @@ export interface CliOptions {
   codexHome?: string;
   serverUrl: string;
   latest: boolean;
+  yes: boolean;
   json: boolean;
   dryRun: boolean;
   force: boolean;
@@ -31,7 +32,8 @@ export function usage(): string {
     "  --claude-home <path>  Override the Claude home directory",
     "  --codex-home <path>   Override the Codex home directory",
     "  --server <url>        Server base URL",
-    "  --latest              Export the latest session without prompting",
+    "  --latest              Select the latest session without the picker",
+    "  --yes                 Confirm transcript upload without an interactive prompt",
     "  --dry-run             Show import target paths without writing files",
     "  --force               Overwrite existing local import files",
     "  --json                Print the result as JSON",
@@ -56,6 +58,7 @@ export function parseArgs(argv: string[]): CliOptions {
     workspace: process.cwd(),
     serverUrl: resolveServerUrl(),
     latest: false,
+    yes: false,
     json: false,
     dryRun: false,
     force: false,
@@ -101,6 +104,9 @@ export function parseArgs(argv: string[]): CliOptions {
         break;
       case "--latest":
         options.latest = true;
+        break;
+      case "--yes":
+        options.yes = true;
         break;
       case "--dry-run":
         options.dryRun = true;

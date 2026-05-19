@@ -2,7 +2,48 @@ import { describe, expect, test } from "bun:test";
 
 import { DEFAULT_SERVER_URL, parseArgs, resolveServerUrl } from "../src/cli/args";
 import { buildPublicThreadUrl, formatUploadFailure } from "../src/cli/upload";
-import { isUploadRequest } from "../lib/validation";
+import { MAX_RAW_FILE_BYTES, isUploadRequest } from "../lib/validation";
+
+function validUploadRequest() {
+  return {
+    schemaVersion: 1,
+    source: "codex",
+    sessionId: "session-1",
+    projectKey: "project",
+    projectPath: null,
+    title: null,
+    rawFiles: [
+      {
+        threadId: "session-1",
+        kind: "main",
+        fileName: "session-1.jsonl",
+        relativePath: "sessions/2026/05/19/session-1.jsonl",
+        content: JSON.stringify({ type: "session_meta", payload: { id: "session-1" } }) + "\n",
+      },
+    ],
+    normalized: {
+      schemaVersion: 1,
+      source: "codex",
+      importedAt: "2026-04-25T00:00:00.000Z",
+      root: {
+        sessionId: "session-1",
+        projectKey: "project",
+        projectPath: null,
+        title: null,
+        cwd: null,
+        gitBranch: null,
+        startedAt: null,
+      },
+      threads: [],
+      stats: {
+        threadCount: 0,
+        eventCount: 0,
+        messageCount: 0,
+        sidechainCount: 0,
+      },
+    },
+  };
+}
 
 describe("CLI server URL resolution", () => {
   test("defaults to the deployed custom domain", () => {
@@ -29,6 +70,7 @@ describe("CLI provider args", () => {
       "--server",
       "https://example.com",
       "--latest",
+      "--yes",
       "--json",
     ]);
 
@@ -36,6 +78,7 @@ describe("CLI provider args", () => {
     expect(options.cwd).toBe("/tmp/upload-scope");
     expect(options.serverUrl).toBe("https://example.com");
     expect(options.latest).toBe(true);
+    expect(options.yes).toBe(true);
     expect(options.json).toBe(true);
   });
 
@@ -66,35 +109,42 @@ describe("CLI provider args", () => {
 
 describe("upload validation", () => {
   test("accepts Codex as a persisted upload source", () => {
-    expect(
-      isUploadRequest({
-        schemaVersion: 1,
-        source: "codex",
-        sessionId: "session-1",
-        rawFiles: [],
-        normalized: {
-          schemaVersion: 1,
-          source: "codex",
-          importedAt: "2026-04-25T00:00:00.000Z",
-          root: {
-            sessionId: "session-1",
-            projectKey: "project",
-            projectPath: null,
-            title: null,
-            cwd: null,
-            gitBranch: null,
-            startedAt: null,
-          },
-          threads: [],
-          stats: {
-            threadCount: 0,
-            eventCount: 0,
-            messageCount: 0,
-            sidechainCount: 0,
-          },
-        },
-      }),
-    ).toBe(true);
+    expect(isUploadRequest(validUploadRequest())).toBe(true);
+  });
+
+  test("rejects uploads without raw transcript files", () => {
+    const request = validUploadRequest();
+    request.rawFiles = [];
+
+    expect(isUploadRequest(request)).toBe(false);
+  });
+
+  test("rejects malformed raw transcript file fields", () => {
+    const request = validUploadRequest();
+    request.rawFiles[0]!.fileName = "../session-1.jsonl";
+
+    expect(isUploadRequest(request)).toBe(false);
+  });
+
+  test("rejects oversized raw transcript files", () => {
+    const request = validUploadRequest();
+    request.rawFiles[0]!.content = "x".repeat(MAX_RAW_FILE_BYTES + 1);
+
+    expect(isUploadRequest(request)).toBe(false);
+  });
+
+  test("rejects normalized source mismatches", () => {
+    const request = validUploadRequest();
+    request.normalized.source = "claude-code";
+
+    expect(isUploadRequest(request)).toBe(false);
+  });
+
+  test("rejects normalized stats mismatches", () => {
+    const request = validUploadRequest();
+    request.normalized.stats.eventCount = 1;
+
+    expect(isUploadRequest(request)).toBe(false);
   });
 });
 

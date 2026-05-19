@@ -1,0 +1,31 @@
+name = "agent-thread"
+main = ".open-next/worker.js"
+compatibility_date = "2026-04-25"
+compatibility_flags = ["nodejs_compat", "global_fetch_strictly_public"]
+
+[assets]
+directory = ".open-next/assets"
+binding = "ASSETS"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "agent-thread"
+database_id = "replace-with-your-d1-database-id"
+
+[[r2_buckets]]
+binding = "SESSIONS_BUCKET"
+bucket_name = "replace-with-your-r2-bucket-name"
+
+# Use either a custom domain route or remove this block to deploy to workers.dev.
+[[routes]]
+pattern = "your-domain.example"
+zone_name = "your-domain.example"
+custom_domain = true
+
+[vars]
+PUBLIC_BASE_URL = "https://your-domain.example"
+AGENT_THREAD_SERVER_URL = "https://your-domain.example"
+
+[observability.logs]
+enabled = false
+invocation_logs = true

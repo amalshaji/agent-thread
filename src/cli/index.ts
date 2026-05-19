@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { cancel, intro, outro, spinner } from "@clack/prompts";
+import { cancel, confirm, intro, isCancel, outro, spinner } from "@clack/prompts";
 
 import { parseArgs, type CliOptions } from "./args";
 import { formatSessionLabel } from "./display";
@@ -12,6 +12,29 @@ import { discoverCodexSessions } from "../shared/codex";
 
 function providerLabel(provider: "claude" | "codex"): string {
   return provider === "codex" ? "Codex" : "Claude";
+}
+
+async function confirmUpload(options: CliOptions, label: string): Promise<void> {
+  if (options.yes) {
+    return;
+  }
+
+  const nonInteractive = options.json || !process.stdin.isTTY || !process.stdout.isTTY;
+  if (nonInteractive) {
+    throw new Error(
+      "Refusing to upload raw transcript files without confirmation. Re-run with --yes after reviewing the session.",
+    );
+  }
+
+  const accepted = await confirm({
+    message: `Upload this ${label} session, including raw transcript files, to ${options.serverUrl}? Anyone with the public link can view or import it.`,
+    initialValue: false,
+  });
+
+  if (isCancel(accepted) || !accepted) {
+    cancel("Upload cancelled.");
+    process.exit(1);
+  }
 }
 
 async function runClaudeUpload(options: CliOptions, label: string) {
@@ -40,6 +63,8 @@ async function runClaudeUpload(options: CliOptions, label: string) {
     }
     process.exit(1);
   }
+
+  await confirmUpload(options, label);
 
   const uploadSpinner = spinner();
   uploadSpinner.start(`Exporting ${formatSessionLabel(selected)}`);
@@ -79,6 +104,8 @@ async function runCodexUpload(options: CliOptions, label: string) {
     }
     process.exit(1);
   }
+
+  await confirmUpload(options, label);
 
   const uploadSpinner = spinner();
   uploadSpinner.start(`Exporting ${formatSessionLabel(selected)}`);

@@ -43,6 +43,18 @@ bunx agent-thread --import https://agent-thread.com/t/0c5a0y4a406r --workspace /
 
 Claude Code exports import into Claude Code. Codex exports import into Codex. Use `--dry-run` to inspect target paths without writing files and `--force` to overwrite an existing local import.
 
+Use `--yes` to confirm uploads in non-interactive scripts after you have reviewed the session content:
+
+```bash
+bunx agent-thread --latest --yes
+```
+
+## Privacy and Safety
+
+agent-thread uploads the raw Claude Code or Codex transcript files for the selected session, plus a normalized transcript used by the web viewer. These files can include prompts, tool outputs, local file paths, repository names, branch names, environment details, code snippets, and secrets that appeared in the conversation.
+
+Anyone with a public thread link can view the rendered transcript. Anyone with the link can also fetch the export bundle and import it back into the source app. Review sessions before uploading and avoid sharing links publicly unless the transcript is safe to disclose.
+
 ## Requirements
 
 - Bun
@@ -88,7 +100,7 @@ bunx wrangler d1 create agent-thread
 bunx wrangler r2 bucket create agent-thread-sessions
 ```
 
-Update `wrangler.toml` with your own values:
+Use `wrangler.example.toml` as a reference when configuring your deployment. Copy the values into your own `wrangler.toml` and update:
 
 - `database_id` from the D1 create output
 - `bucket_name` for your R2 bucket
