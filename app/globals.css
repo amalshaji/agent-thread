@@ -240,8 +240,36 @@ pre,
   align-items: center;
   justify-content: center;
   border-radius: 5px;
-  background: var(--primary);
-  color: var(--primary-foreground);
+  border: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.switcher-mark .app-icon {
+  width: 14px;
+  height: 14px;
+}
+
+.app-hero-mark {
+  background: var(--surface);
+}
+
+.app-icon {
+  --app-icon-ink: #0e0c2c;
+  --app-icon-accent: #53b776;
+  display: block;
+}
+
+html[data-theme="dark"] .app-icon {
+  --app-icon-ink: #e8e4dc;
+  --app-icon-accent: #8bcca0;
+}
+
+.app-icon-ink {
+  fill: var(--app-icon-ink);
+}
+
+.app-icon-accent {
+  fill: var(--app-icon-accent);
 }
 
 .switcher-dim {

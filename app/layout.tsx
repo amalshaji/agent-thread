@@ -7,6 +7,10 @@ import "./transcript.css";
 export const metadata: Metadata = {
   title: "agent thread",
   description: "Share Claude Code and Codex sessions as public links.",
+  icons: {
+    icon: [{ url: "/agent-thread-icon.svg", type: "image/svg+xml" }],
+    shortcut: [{ url: "/agent-thread-icon.svg", type: "image/svg+xml" }],
+  },
 };
 
 const themeBootScript = `
