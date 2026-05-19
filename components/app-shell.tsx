@@ -1,5 +1,3 @@
-import { Sparkles } from "lucide-react";
-
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -14,7 +12,7 @@ export function AppHeader({ publicId, className }: AppHeaderProps) {
     <header className={cn("app-switcher", className)}>
       <div className="switcher-brand">
         <div className="switcher-mark">
-          <Sparkles className="size-3" aria-hidden="true" />
+          <img src="/agent-thread-icon.svg" alt="" aria-hidden="true" />
         </div>
         <b>agent thread</b>
         {publicId ? <span className="switcher-dim">/ {publicId}</span> : null}

@@ -240,8 +240,14 @@ pre,
   align-items: center;
   justify-content: center;
   border-radius: 5px;
-  background: var(--primary);
-  color: var(--primary-foreground);
+  border: 1px solid var(--border);
+  background: #fbfaf8;
+}
+
+.switcher-mark img {
+  width: 14px;
+  height: 14px;
+  object-fit: contain;
 }
 
 .switcher-dim {
