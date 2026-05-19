@@ -3,6 +3,7 @@ import type {
   NormalizedEvent,
   NormalizedEventDisplayKind,
 } from "../contracts";
+import { boundedTextPreview } from "../text-preview";
 import type { CodexRecord, CodexTranscriptSummary, JsonValue } from "./types";
 
 type RecordValue = Record<string, unknown>;
@@ -140,7 +141,7 @@ function buildEvent(
     role: config.role ?? null,
     displayKind: config.displayKind,
     blocks: config.blocks,
-    textPreview: firstTextBlock(config.blocks),
+    textPreview: boundedTextPreview(firstTextBlock(config.blocks)),
     flags: {
       isMeta: config.isMeta === true,
       isSidechain: transcript.kind === "sidechain",
