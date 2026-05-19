@@ -126,6 +126,13 @@ describe("upload validation", () => {
     expect(isUploadRequest(request)).toBe(false);
   });
 
+  test("rejects raw transcript paths with traversal segments", () => {
+    const request = validUploadRequest();
+    request.rawFiles[0]!.relativePath = "sessions/../state_5.sqlite";
+
+    expect(isUploadRequest(request)).toBe(false);
+  });
+
   test("rejects oversized raw transcript files", () => {
     const request = validUploadRequest();
     request.rawFiles[0]!.content = "x".repeat(MAX_RAW_FILE_BYTES + 1);
