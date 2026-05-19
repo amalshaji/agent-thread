@@ -1,3 +1,4 @@
+import { AppIcon } from "@/components/app-icon";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -12,7 +13,7 @@ export function AppHeader({ publicId, className }: AppHeaderProps) {
     <header className={cn("app-switcher", className)}>
       <div className="switcher-brand">
         <div className="switcher-mark">
-          <img src="/agent-thread-icon.svg" alt="" aria-hidden="true" />
+          <AppIcon />
         </div>
         <b>agent thread</b>
         {publicId ? <span className="switcher-dim">/ {publicId}</span> : null}
